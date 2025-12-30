@@ -19,6 +19,7 @@
                         },
                         instagram: '#C13584',
                         youtube: '#FF0000',
+                        tiktok: '#000000',
                         linkedin: '#0077b5'
                     }
                 }
@@ -31,6 +32,9 @@
     
     <!-- FullCalendar -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+
+    <!-- Canvas Confetti (Para a celebração) -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -63,11 +67,8 @@
         
         <!-- Sidebar -->
         <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col z-10">
-            <!-- LOGO AREA ATUALIZADA -->
+            <!-- LOGO AREA (LIMPA - APENAS TEXTO) -->
             <div class="p-6 flex flex-col items-center justify-center border-b border-gray-200 dark:border-gray-700 text-center">
-                <div class="h-12 w-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-3">
-                    <i class="fa-solid fa-rotate-right text-2xl text-indigo-600 dark:text-indigo-400"></i>
-                </div>
                 <h1 class="text-xl font-bold text-gray-900 dark:text-white tracking-tight leading-tight">
                     ReVive Assessoria
                 </h1>
@@ -103,9 +104,6 @@
             <!-- Mobile Header -->
             <header class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center sticky top-0 z-20">
                 <div class="flex items-center gap-3">
-                    <div class="h-8 w-8 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
-                        <i class="fa-solid fa-rotate-right text-indigo-600 dark:text-indigo-400"></i>
-                    </div>
                     <div class="flex flex-col">
                         <span class="font-bold text-gray-900 dark:text-white leading-tight">ReVive Assessoria</span>
                         <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Plano de MKT</span>
@@ -182,7 +180,7 @@
 
                         <!-- Chart 2: Platform -->
                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold mb-4">Volume por Rede Social</h3>
+                            <h3 class="text-lg font-semibold mb-4">Volume por Canal</h3>
                             <div class="relative h-64">
                                 <canvas id="platformChart"></canvas>
                             </div>
@@ -220,9 +218,11 @@
                     <!-- Filters -->
                     <div class="flex gap-4 mb-6 overflow-x-auto pb-2">
                         <select id="filter-platform" onchange="app.renderActivities()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="all">Todas as Redes</option>
+                            <option value="all">Todos os Canais</option>
                             <option value="instagram">Instagram</option>
                             <option value="youtube">YouTube</option>
+                            <option value="tiktok">TikTok</option>
+                            <option value="others">Outros (Eventos/etc)</option>
                         </select>
                         <select id="filter-status" onchange="app.renderActivities()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="all">Todos os Status</option>
@@ -275,26 +275,43 @@
                                     <input type="hidden" id="post-id">
                                     
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título / Nome</label>
                                         <input type="text" id="post-title" required class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rede Social</label>
-                                            <select id="post-platform" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
+                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Canal / Rede</label>
+                                            <select id="post-platform" onchange="app.toggleCostFields()" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                                                 <option value="instagram">Instagram</option>
                                                 <option value="youtube">YouTube</option>
+                                                <option value="tiktok">TikTok</option>
+                                                <option value="others">Outros (Eventos, etc)</option>
                                             </select>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
                                             <select id="post-type" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                                                 <option value="post">Post (Feed)</option>
-                                                <option value="reels">Reels / Shorts</option>
+                                                <option value="reels">Reels / Shorts / TikTok</option>
                                                 <option value="stories">Stories</option>
                                                 <option value="video">Vídeo Longo</option>
+                                                <option value="event">Evento Presencial</option>
+                                                <option value="email">E-mail Marketing</option>
+                                                <option value="other">Outro</option>
                                             </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Campos de Custo (Ocultos por padrão) -->
+                                    <div id="cost-container" class="hidden p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                                        <div class="flex items-center mb-2">
+                                            <input id="post-has-cost" type="checkbox" onchange="app.toggleCostInput()" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                            <label for="post-has-cost" class="ml-2 block text-sm text-gray-900 dark:text-gray-100 font-medium">Tem custo envolvido?</label>
+                                        </div>
+                                        <div id="cost-value-container" class="hidden mt-2">
+                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Valor Estimado (R$)</label>
+                                            <input type="number" id="post-cost-value" step="0.01" placeholder="0,00" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                                         </div>
                                     </div>
 
@@ -304,7 +321,7 @@
                                     </div>
 
                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição / Legenda</label>
+                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição / Detalhes</label>
                                         <textarea id="post-desc" rows="3" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"></textarea>
                                     </div>
 
@@ -331,8 +348,12 @@
     </div>
 
     <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50">
-        <span id="toast-msg">Mensagem</span>
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-green-400 hidden"></i>
+        <div class="flex flex-col">
+            <span id="toast-msg" class="font-medium">Mensagem</span>
+            <span id="toast-sub" class="text-xs text-gray-300 hidden">Frase motivacional</span>
+        </div>
     </div>
 
     <script>
@@ -343,6 +364,18 @@
             data: [],
             calendarInstance: null,
             charts: { status: null, platform: null },
+            quotes: [
+                "Fantástico! Mais uma meta alcançada!",
+                "Você está mandando muito bem!",
+                "O sucesso é a soma de pequenos esforços!",
+                "Excelente! Continue com esse ritmo!",
+                "Tarefa derrubada! Quem é o próximo?",
+                "Marketing de resultados é isso aí!",
+                "Brilhante! Sua consistência é a chave.",
+                "Isso aí! Foco total nos objetivos.",
+                "Conquista desbloqueada! Parabéns!",
+                "Sua produtividade está on fire! 🔥"
+            ],
             
             init() {
                 // 1. Load Data
@@ -377,7 +410,6 @@
 
             saveData() {
                 localStorage.setItem('marketingPlannerData', JSON.stringify(this.data));
-                this.showToast('Dados salvos com sucesso!');
                 this.refreshCurrentView();
             },
 
@@ -447,6 +479,8 @@
                 // Platform Data
                 const igCount = this.data.filter(i => i.platform === 'instagram').length;
                 const ytCount = this.data.filter(i => i.platform === 'youtube').length;
+                const ttCount = this.data.filter(i => i.platform === 'tiktok').length;
+                const otherCount = this.data.filter(i => i.platform === 'others').length;
 
                 // Destroy old charts if exist
                 if (this.charts.status) this.charts.status.destroy();
@@ -479,11 +513,11 @@
                 this.charts.platform = new Chart(ctx2, {
                     type: 'bar',
                     data: {
-                        labels: ['Instagram', 'YouTube'],
+                        labels: ['Instagram', 'YouTube', 'TikTok', 'Outros'],
                         datasets: [{
-                            label: 'Postagens',
-                            data: [igCount, ytCount],
-                            backgroundColor: ['#C13584', '#FF0000'],
+                            label: 'Postagens / Eventos',
+                            data: [igCount, ytCount, ttCount, otherCount],
+                            backgroundColor: ['#C13584', '#FF0000', '#333333', '#fbbf24'],
                             borderRadius: 6
                         }]
                     },
@@ -516,13 +550,21 @@
                             center: 'title',
                             right: 'dayGridMonth,listWeek'
                         },
-                        events: this.data.map(item => ({
-                            id: item.id,
-                            title: `[${item.platform === 'instagram' ? 'IG' : 'YT'}] ${item.title}`,
-                            start: item.date,
-                            color: this.getStatusColor(item.status),
-                            extendedProps: { ...item }
-                        })),
+                        events: this.data.map(item => {
+                            let prefix = '';
+                            if(item.platform === 'instagram') prefix = 'IG';
+                            else if(item.platform === 'youtube') prefix = 'YT';
+                            else if(item.platform === 'tiktok') prefix = 'TT';
+                            else prefix = 'OUT';
+
+                            return {
+                                id: item.id,
+                                title: `[${prefix}] ${item.title}`,
+                                start: item.date,
+                                color: this.getStatusColor(item.status),
+                                extendedProps: { ...item }
+                            };
+                        }),
                         eventClick: (info) => {
                             this.openModal(info.event.extendedProps);
                         },
@@ -576,9 +618,17 @@
                     else statusBadge = '<span class="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Pendente</span>';
 
                     // Icon
-                    const icon = item.platform === 'instagram' 
-                        ? '<i class="fa-brands fa-instagram text-pink-600"></i>' 
-                        : '<i class="fa-brands fa-youtube text-red-600"></i>';
+                    let icon = '';
+                    if(item.platform === 'instagram') icon = '<i class="fa-brands fa-instagram text-pink-600 text-lg"></i>';
+                    else if(item.platform === 'youtube') icon = '<i class="fa-brands fa-youtube text-red-600 text-lg"></i>';
+                    else if(item.platform === 'tiktok') icon = '<i class="fa-brands fa-tiktok text-gray-800 dark:text-gray-200 text-lg"></i>';
+                    else icon = '<i class="fa-solid fa-bullhorn text-amber-500 text-lg"></i>';
+
+                    // Extra info (Cost)
+                    let extraInfo = '';
+                    if(item.platform === 'others' && item.hasCost) {
+                        extraInfo = `<div class="text-xs text-gray-400 mt-1">Custo: R$ ${item.costValue || '0,00'}</div>`;
+                    }
 
                     // Format Date
                     const dateFormatted = new Date(item.date).toLocaleDateString('pt-BR');
@@ -586,8 +636,11 @@
                     row.innerHTML = `
                         <td class="p-4 whitespace-nowrap">${statusBadge}</td>
                         <td class="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${dateFormatted}</td>
-                        <td class="p-4 whitespace-nowrap text-sm font-medium">${icon} <span class="ml-1 capitalize text-gray-700 dark:text-gray-300">${item.type}</span></td>
-                        <td class="p-4 text-sm text-gray-900 dark:text-gray-100 font-medium">${item.title}</td>
+                        <td class="p-4 whitespace-nowrap text-sm font-medium flex items-center gap-2">${icon} <span class="capitalize text-gray-700 dark:text-gray-300">${item.type}</span></td>
+                        <td class="p-4 text-sm text-gray-900 dark:text-gray-100 font-medium">
+                            ${item.title}
+                            ${extraInfo}
+                        </td>
                         <td class="p-4 whitespace-nowrap text-right text-sm font-medium">
                             <button onclick="app.toggleStatus('${item.id}')" class="text-indigo-600 hover:text-indigo-900 dark:hover:text-indigo-400 mr-3" title="Marcar como Concluído/Pendente">
                                 <i class="fa-solid fa-check-circle text-lg"></i>
@@ -602,6 +655,31 @@
             },
 
             /* --- MODAL & CRUD --- */
+            toggleCostFields() {
+                const platform = document.getElementById('post-platform').value;
+                const container = document.getElementById('cost-container');
+                if (platform === 'others') {
+                    container.classList.remove('hidden');
+                } else {
+                    container.classList.add('hidden');
+                    // Reset fields if hiding
+                    document.getElementById('post-has-cost').checked = false;
+                    document.getElementById('cost-value-container').classList.add('hidden');
+                    document.getElementById('post-cost-value').value = '';
+                }
+            },
+
+            toggleCostInput() {
+                const hasCost = document.getElementById('post-has-cost').checked;
+                const inputContainer = document.getElementById('cost-value-container');
+                if (hasCost) {
+                    inputContainer.classList.remove('hidden');
+                } else {
+                    inputContainer.classList.add('hidden');
+                    document.getElementById('post-cost-value').value = '';
+                }
+            },
+
             openModal(existingItem = null, defaultDate = null) {
                 const modal = document.getElementById('post-modal');
                 const title = document.getElementById('modal-title');
@@ -619,12 +697,22 @@
                     document.getElementById('post-date').value = existingItem.date;
                     document.getElementById('post-desc').value = existingItem.description;
                     document.getElementById('post-status').value = existingItem.status;
+
+                    // Handle Cost Fields
+                    this.toggleCostFields(); // Show/Hide container based on platform
+                    if(existingItem.platform === 'others') {
+                        document.getElementById('post-has-cost').checked = existingItem.hasCost || false;
+                        this.toggleCostInput();
+                        document.getElementById('post-cost-value').value = existingItem.costValue || '';
+                    }
+
                 } else {
                     title.innerText = 'Nova Postagem';
                     btnDelete.classList.add('hidden');
                     document.getElementById('post-form').reset();
                     document.getElementById('post-id').value = '';
                     document.getElementById('post-status').value = 'pending';
+                    this.toggleCostFields(); // Ensure hidden
                     if(defaultDate) document.getElementById('post-date').value = defaultDate;
                 }
             },
@@ -635,6 +723,8 @@
 
             savePost() {
                 const id = document.getElementById('post-id').value;
+                const status = document.getElementById('post-status').value;
+                
                 const newItem = {
                     id: id || crypto.randomUUID(),
                     title: document.getElementById('post-title').value,
@@ -642,7 +732,10 @@
                     type: document.getElementById('post-type').value,
                     date: document.getElementById('post-date').value,
                     description: document.getElementById('post-desc').value,
-                    status: document.getElementById('post-status').value
+                    status: status,
+                    // New Fields
+                    hasCost: document.getElementById('post-has-cost').checked,
+                    costValue: document.getElementById('post-cost-value').value
                 };
 
                 if (!newItem.title || !newItem.date) {
@@ -652,9 +745,20 @@
 
                 if (id) {
                     const index = this.data.findIndex(i => i.id === id);
+                    const oldStatus = this.data[index].status;
                     this.data[index] = newItem;
+                    
+                    // Celebration if moving to done
+                    if(status === 'done' && oldStatus !== 'done') {
+                        this.celebrate();
+                    } else {
+                        this.showToast('Postagem atualizada!');
+                    }
+
                 } else {
                     this.data.push(newItem);
+                    if(status === 'done') this.celebrate();
+                    else this.showToast('Nova postagem criada!');
                 }
 
                 this.saveData();
@@ -667,6 +771,7 @@
                     this.data = this.data.filter(i => i.id !== id);
                     this.saveData();
                     this.closeModal();
+                    this.showToast('Item excluído.');
                 }
             },
 
@@ -678,9 +783,47 @@
             toggleStatus(id) {
                 const item = this.data.find(i => i.id === id);
                 if(item) {
+                    const oldStatus = item.status;
                     item.status = item.status === 'done' ? 'pending' : 'done';
                     this.saveData();
+                    
+                    if(item.status === 'done' && oldStatus !== 'done') {
+                        this.celebrate();
+                    } else {
+                        this.showToast('Status atualizado.');
+                    }
                 }
+            },
+
+            celebrate() {
+                // 1. Confetti
+                const duration = 2000;
+                const end = Date.now() + duration;
+
+                (function frame() {
+                    confetti({
+                        particleCount: 3,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24']
+                    });
+                    confetti({
+                        particleCount: 3,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24']
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+
+                // 2. Motivational Toast
+                const randomQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
+                this.showToast('Tarefa Concluída!', randomQuote, true);
             },
 
             /* --- UTILS --- */
@@ -695,8 +838,11 @@
             },
 
             exportCSV() {
-                const headers = ["ID", "Título", "Rede Social", "Tipo", "Data", "Status", "Descrição"];
-                const rows = this.data.map(i => [i.id, i.title, i.platform, i.type, i.date, i.status, i.description]);
+                const headers = ["ID", "Título", "Canal", "Tipo", "Data", "Status", "Descrição", "Tem Custo?", "Valor"];
+                const rows = this.data.map(i => [
+                    i.id, i.title, i.platform, i.type, i.date, i.status, i.description, 
+                    i.hasCost ? "Sim" : "Não", i.costValue || "0"
+                ]);
                 
                 let csvContent = "data:text/csv;charset=utf-8," + 
                     headers.join(",") + "\n" + 
@@ -710,13 +856,34 @@
                 link.click();
             },
 
-            showToast(msg) {
+            showToast(msg, subMsg = '', isSuccess = false) {
                 const toast = document.getElementById('toast');
                 document.getElementById('toast-msg').innerText = msg;
+                
+                const subEl = document.getElementById('toast-sub');
+                const iconEl = document.getElementById('toast-icon');
+
+                if(subMsg) {
+                    subEl.innerText = subMsg;
+                    subEl.classList.remove('hidden');
+                } else {
+                    subEl.classList.add('hidden');
+                }
+
+                if(isSuccess) {
+                    iconEl.classList.remove('hidden');
+                } else {
+                    iconEl.classList.add('hidden');
+                }
+
                 toast.classList.remove('opacity-0', 'translate-y-20');
+                
+                // Longer duration if there is a submessage
+                const duration = subMsg ? 5000 : 3000;
+
                 setTimeout(() => {
                     toast.classList.add('opacity-0', 'translate-y-20');
-                }, 3000);
+                }, duration);
             }
         };
 
@@ -727,4 +894,3 @@
     </script>
 </body>
 </html>
-
