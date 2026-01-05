@@ -48,13 +48,29 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Variáveis de Diagnóstico Global
+        window.diag = {
+            configLoaded: false,
+            authAttempted: false,
+            authSuccess: false,
+            authError: null,
+            dbConnected: false
+        };
+
         // Configuração Firebase Segura
         let firebaseConfig;
         try {
-            firebaseConfig = JSON.parse(__firebase_config);
+            // Tenta ler a configuração injetada
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+                window.diag.configLoaded = true;
+            } else {
+                throw new Error("Variável de config indefinida");
+            }
         } catch (e) {
-            console.warn("Modo Offline ativado por falta de config.");
+            console.warn("Modo Offline: Configuração não encontrada.", e);
             firebaseConfig = {}; 
+            window.diag.configLoaded = false;
         }
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -73,16 +89,21 @@
                     window.appId = appId;
                     window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
                     
+                    window.diag.authAttempted = true;
+                    
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
                     console.log("Re-autenticado com sucesso");
+                    window.diag.authSuccess = true;
                     window.isFirebaseReady = true;
                     return true;
                 } catch (error) {
                     console.error("Erro de Autenticação Manual:", error);
+                    window.diag.authSuccess = false;
+                    window.diag.authError = error.message;
                     return false;
                 }
             } else {
@@ -136,6 +157,11 @@
                 </button>
                 <button onclick="app.navigate('activities')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" data-target="activities">
                     <i class="fa-solid fa-list-check w-6"></i> Atividades
+                </button>
+                
+                <!-- Botão de Diagnóstico (Novo) -->
+                <button onclick="app.runDiagnostics()" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <i class="fa-solid fa-stethoscope w-6"></i> Diagnóstico
                 </button>
             </nav>
 
@@ -198,7 +224,7 @@
                             </div>
                         </div>
 
-                        <!-- Card 2: Total (NOVO) -->
+                        <!-- Card 2: Total -->
                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total de Tarefas</p>
@@ -501,10 +527,12 @@
                         this.offlineMode = false;
                         document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
                         document.getElementById('connection-btn').classList.remove('animate-pulse');
+                        window.diag.dbConnected = true;
                         this.setupRealtimeListener();
                     } else if (window.firebaseInitializationError || attempts >= maxAttempts) {
                         clearInterval(checkFirebase);
                         this.enableOfflineMode();
+                        window.diag.dbConnected = false;
                     }
                 }, 1000);
                 
@@ -525,11 +553,41 @@
 
                 this.navigate('dashboard');
             },
+            
+            runDiagnostics() {
+                const diag = window.diag || {};
+                let report = "--- Diagnóstico de Conexão ---\n\n";
+                
+                // 1. Configuração
+                report += `1. Configuração Carregada: ${diag.configLoaded ? "SIM (OK)" : "NÃO (Erro Crítico)"}\n`;
+                if (!diag.configLoaded) report += "   -> Motivo: O app provavelmente foi salvo fora do ambiente original.\n";
+                
+                // 2. Autenticação
+                report += `2. Tentativa de Login: ${diag.authAttempted ? "Sim" : "Ainda não"}\n`;
+                report += `3. Login Bem-sucedido: ${diag.authSuccess ? "SIM (OK)" : "NÃO"}\n`;
+                if (diag.authError) report += `   -> Erro: ${diag.authError}\n`;
+                
+                // 3. Banco de Dados
+                report += `4. Conexão ao Banco: ${diag.dbConnected ? "SIM (OK)" : "NÃO (Modo Offline)"}\n`;
+                
+                // 4. Rede
+                report += `5. Internet do Navegador: ${navigator.onLine ? "Online" : "Offline"}\n\n`;
+                
+                report += diag.configLoaded && diag.authSuccess 
+                    ? "Conclusão: Tudo parece correto. Se não vê dados, pode ser que esteja em outra conta ou projeto." 
+                    : "Conclusão: Há falhas de configuração. Os dados serão salvos apenas neste dispositivo.";
+                
+                alert(report);
+            },
 
             enableOfflineMode() {
                 this.offlineMode = true;
                 console.log("Ativando modo offline...");
-                document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> Offline (Reconectar)</span>';
+                // Mensagem mais clara sobre a causa
+                const isConfigMissing = window.diag && window.diag.configLoaded === false;
+                const statusText = isConfigMissing ? "Erro Config (Offline)" : "Offline (Reconectar)";
+                
+                document.getElementById('connection-status').innerHTML = `<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> ${statusText}</span>`;
                 document.getElementById('connection-btn').classList.add('animate-pulse');
                 document.getElementById('loading-state').classList.add('hidden');
                 
@@ -548,7 +606,7 @@
                 }
                 
                 this.refreshCurrentView();
-                this.showToast('Modo Offline Ativado', 'Salvo apenas neste dispositivo.', false);
+                this.showToast('Modo Offline Ativado', 'Dados salvos localmente (não na nuvem).', false);
             },
             
             async retryConnection() {
@@ -564,8 +622,8 @@
                         this.showToast('Conexão Restaurada!', 'Sincronizando dados...', true);
                     } else {
                         // Keep offline mode but visually indicate failure
-                        document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> Falha (Tentar de novo)</span>';
-                        this.showToast('Erro de Conexão', 'Não foi possível conectar à nuvem.', false);
+                        this.enableOfflineMode(); // Reset visual to offline
+                        this.showToast('Falha na Conexão', 'Verifique o diagnóstico.', false);
                     }
                 } else {
                     alert("Função de conexão não disponível.");
@@ -602,6 +660,7 @@
                     this.refreshCurrentView();
                 }, (error) => {
                     console.error("Error fetching data: ", error);
+                    window.diag.dbConnected = false; // Mark db failure
                     this.enableOfflineMode(); // Fallback on runtime error
                 });
             },
