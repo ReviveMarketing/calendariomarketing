@@ -42,6 +42,41 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration using Global Variables
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
+        const db = getFirestore(firebaseApp);
+
+        // Expose to Global Scope for the existing 'app' logic
+        window.db = db;
+        window.auth = auth;
+        window.appId = appId;
+        window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+        
+        // Initialize Auth
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+            }
+        };
+        initAuth();
+    </script>
+
     <style>
         body { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -85,16 +120,10 @@
                 </button>
             </nav>
 
-            <!-- Backup & Theme Area -->
+            <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="app.backupData()" class="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-gray-600 transition text-xs text-indigo-700 dark:text-indigo-300">
-                        <i class="fa-solid fa-download mb-1"></i> Backup
-                    </button>
-                    <label class="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-gray-600 transition text-xs text-indigo-700 dark:text-indigo-300 cursor-pointer">
-                        <i class="fa-solid fa-upload mb-1"></i> Restaurar
-                        <input type="file" id="restore-file" class="hidden" accept=".json" onchange="app.restoreData(this)">
-                    </label>
+                <div class="text-xs text-center text-gray-400 mb-2">
+                    <i class="fa-solid fa-cloud text-indigo-500"></i> Dados na Nuvem (Compartilhado)
                 </div>
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                     <i class="fa-solid fa-moon dark:hidden mr-2"></i>
@@ -264,9 +293,13 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="loading-state" class="hidden p-8 text-center text-indigo-500">
+                            <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-3"></i>
+                            <p>Carregando dados da nuvem...</p>
+                        </div>
                         <div id="empty-state" class="hidden p-8 text-center text-gray-500">
-                            <i class="fa-solid fa-clipboard-list text-4xl mb-3 opacity-30"></i>
-                            <p>Nenhuma atividade encontrada.</p>
+                            <i class="fa-solid fa-cloud text-4xl mb-3 opacity-30"></i>
+                            <p>Nenhum dado encontrado. Comece adicionando um post!</p>
                         </div>
                     </div>
                 </div>
@@ -343,7 +376,6 @@
 
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                                        <!-- Note: Changing to Done here will trigger the date prompt via JS -->
                                         <select id="post-status" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                                             <option value="pending">Pendente</option>
                                             <option value="in_progress">Em Andamento</option>
@@ -364,7 +396,7 @@
         </div>
     </div>
 
-    <!-- COMPLETION DATE MODAL (New) -->
+    <!-- COMPLETION DATE MODAL -->
     <div id="completion-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-gray-900 bg-opacity-80 transition-opacity backdrop-blur-sm"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
@@ -402,14 +434,12 @@
     </div>
 
     <script>
-        /**
-         * LOGIC CORE
-         */
         const app = {
             data: [],
             calendarInstance: null,
             charts: { status: null, platform: null },
-            pendingCompletionId: null, // Holds ID while waiting for date
+            pendingCompletionId: null,
+            pendingNewItem: null, // Temp storage for new item pending date
             quotes: [
                 "Fantástico! Mais uma meta alcançada!",
                 "Você está mandando muito bem!",
@@ -424,7 +454,19 @@
             ],
             
             init() {
-                this.loadData();
+                // Wait for Firebase to be ready before rendering
+                const waitAuth = setInterval(() => {
+                    if (window.auth && window.auth.currentUser) {
+                        clearInterval(waitAuth);
+                        this.setupRealtimeListener();
+                    }
+                }, 500);
+
+                // Setup fallback if auth takes too long
+                setTimeout(() => {
+                   if(!window.auth.currentUser) this.setupRealtimeListener();
+                }, 3000);
+
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
                 if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -437,64 +479,51 @@
                     document.querySelector('aside').classList.toggle('h-full');
                 });
 
-                this.renderDashboard();
                 this.navigate('dashboard');
             },
 
-            loadData() {
-                const stored = localStorage.getItem('marketingPlannerData');
-                this.data = stored ? JSON.parse(stored) : [];
-            },
+            setupRealtimeListener() {
+                if (!window.db || !window.firebaseOps) return;
+                
+                const { collection, onSnapshot, query } = window.firebaseOps;
+                const postsRef = collection(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts');
+                const q = query(postsRef);
 
-            saveData() {
-                localStorage.setItem('marketingPlannerData', JSON.stringify(this.data));
-                this.refreshCurrentView();
-            },
+                document.getElementById('loading-state').classList.remove('hidden');
+                document.getElementById('empty-state').classList.add('hidden');
 
-            backupData() {
-                const dataStr = JSON.stringify(this.data, null, 2);
-                const blob = new Blob([dataStr], { type: "application/json" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `backup_marketing_planner_${new Date().toISOString().slice(0,10)}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                this.showToast('Backup baixado com sucesso!');
-            },
-
-            restoreData(input) {
-                const file = input.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const json = JSON.parse(e.target.result);
-                        if (Array.isArray(json)) {
-                            if(confirm('Isso irá substituir todos os dados atuais pelos do arquivo. Continuar?')) {
-                                this.data = json;
-                                this.saveData();
-                                this.showToast('Dados restaurados com sucesso!', '', true);
-                                this.renderDashboard();
-                            }
-                        } else {
-                            alert('Arquivo inválido.');
-                        }
-                    } catch (err) {
-                        alert('Erro ao ler arquivo.');
+                window.firebaseOps.onSnapshot(q, (snapshot) => {
+                    this.data = [];
+                    snapshot.forEach((doc) => {
+                        this.data.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    document.getElementById('loading-state').classList.add('hidden');
+                    if (this.data.length === 0) {
+                        document.getElementById('empty-state').classList.remove('hidden');
+                    } else {
+                        document.getElementById('empty-state').classList.add('hidden');
                     }
-                    input.value = ''; // Reset input
-                };
-                reader.readAsText(file);
+
+                    this.refreshCurrentView();
+                }, (error) => {
+                    console.error("Error fetching data: ", error);
+                    document.getElementById('loading-state').innerText = "Erro ao carregar dados. Tente recarregar.";
+                });
             },
 
             refreshCurrentView() {
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) this.renderDashboard();
                 if (!document.getElementById('view-activities').classList.contains('hidden')) this.renderActivities();
-                if (!document.getElementById('view-calendar').classList.contains('hidden') && this.calendarInstance) {
-                    this.calendarInstance.refetchEvents();
+                if (!document.getElementById('view-calendar').classList.contains('hidden')) {
+                     // Calendar needs a full re-render sometimes if instance doesn't exist
+                     if(this.calendarInstance) {
+                         this.calendarInstance.refetchEvents();
+                         this.calendarInstance.destroy(); // Hard refresh to ensure data sync
+                         this.initCalendar();
+                     } else {
+                         this.initCalendar();
+                     }
                 }
             },
 
@@ -520,31 +549,25 @@
                 if (target === 'calendar') this.initCalendar();
             },
 
-            /* --- DASHBOARD LOGIC (WITH PRODUCTIVITY) --- */
             renderDashboard() {
+                if(!document.getElementById('kpi-done')) return; // Guard clause
+
                 const today = new Date().toISOString().split('T')[0];
-                
                 const total = this.data.length;
                 const doneItems = this.data.filter(i => i.status === 'done');
                 const done = doneItems.length;
                 const pending = this.data.filter(i => i.status === 'pending' || i.status === 'in_progress').length;
                 
-                // Late: Pending and date < today
                 const late = this.data.filter(i => 
                     (i.status === 'pending' || i.status === 'in_progress') && 
                     i.date < today
                 ).length;
 
-                // PRODUCTIVITY CALC (On Time Rate)
                 let onTimeCount = 0;
                 doneItems.forEach(item => {
-                    // If no completedDate exists (old data), assume on time or ignore. Let's assume on time for simplicity or ignore.
                     if (item.completedDate && item.date) {
-                        if (item.completedDate <= item.date) {
-                            onTimeCount++;
-                        }
+                        if (item.completedDate <= item.date) onTimeCount++;
                     } else if (!item.completedDate && item.status === 'done') {
-                        // Legacy data fix: assume on time if we don't know
                         onTimeCount++;
                     }
                 });
@@ -554,15 +577,15 @@
                     productivityRate = Math.round((onTimeCount / done) * 100);
                 }
 
-                // Update UI
-                // Removed kpi-total update to avoid null error as element was replaced by productivity card
                 document.getElementById('kpi-done').innerText = done;
                 document.getElementById('kpi-pending').innerText = pending;
                 document.getElementById('kpi-late').innerText = late;
 
-                // Productivity Card
-                document.getElementById('kpi-productivity').innerText = `${productivityRate}%`;
-                document.getElementById('kpi-productivity-desc').innerText = `Baseado em ${done} tarefas concluídas`;
+                const prodEl = document.getElementById('kpi-productivity');
+                if(prodEl) prodEl.innerText = `${productivityRate}%`;
+                
+                const prodDesc = document.getElementById('kpi-productivity-desc');
+                if(prodDesc) prodDesc.innerText = `Baseado em ${done} tarefas concluídas`;
 
                 this.renderCharts({ total, done, pending, late });
             },
@@ -621,50 +644,119 @@
                 });
             },
 
-            /* --- COMPLETION LOGIC --- */
-            
-            // Triggered when checking the box in list or selecting Done in modal
-            triggerCompletion(id) {
-                this.pendingCompletionId = id;
-                const item = this.data.find(i => i.id === id);
-                
-                // Pre-fill today's date
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('completion-date-input').value = today;
-                
-                // Open specific modal
-                document.getElementById('completion-modal').classList.remove('hidden');
+            initCalendar() {
+                setTimeout(() => {
+                    const calendarEl = document.getElementById('calendar');
+                    if (this.calendarInstance) {
+                        this.calendarInstance.destroy();
+                    }
+
+                    this.calendarInstance = new FullCalendar.Calendar(calendarEl, {
+                        initialView: 'dayGridMonth',
+                        locale: 'pt-br',
+                        headerToolbar: {
+                            left: 'prev,next today',
+                            center: 'title',
+                            right: 'dayGridMonth,listWeek'
+                        },
+                        events: this.data.map(item => {
+                            let prefix = '';
+                            if(item.platform === 'instagram') prefix = 'IG';
+                            else if(item.platform === 'youtube') prefix = 'YT';
+                            else if(item.platform === 'tiktok') prefix = 'TT';
+                            else prefix = 'OUT';
+
+                            return {
+                                id: item.id,
+                                title: `[${prefix}] ${item.title}`,
+                                start: item.date,
+                                color: this.getStatusColor(item.status),
+                                extendedProps: { ...item }
+                            };
+                        }),
+                        eventClick: (info) => {
+                            this.openModal(info.event.extendedProps);
+                        },
+                        dateClick: (info) => {
+                            this.openModal(null, info.dateStr);
+                        },
+                        height: 'auto'
+                    });
+
+                    this.calendarInstance.render();
+                }, 100);
             },
 
-            closeCompletionModal() {
-                document.getElementById('completion-modal').classList.add('hidden');
-                this.pendingCompletionId = null;
-                // If this came from the Edit Modal change, we might want to revert the select to pending? 
-                // For simplicity, we just close. The user didn't confirm.
+            getStatusColor(status) {
+                if (status === 'done') return '#16a34a';
+                if (status === 'late') return '#dc2626';
+                return '#4F46E5';
             },
 
-            confirmCompletion() {
-                const date = document.getElementById('completion-date-input').value;
-                if (!date) {
-                    alert('Por favor, informe a data.');
+            renderActivities() {
+                const listEl = document.getElementById('activities-list');
+                const emptyEl = document.getElementById('empty-state');
+                const filterPlatform = document.getElementById('filter-platform').value;
+                const filterStatus = document.getElementById('filter-status').value;
+
+                listEl.innerHTML = '';
+
+                let filtered = this.data.sort((a, b) => new Date(a.date) - new Date(b.date));
+                if (filterPlatform !== 'all') filtered = filtered.filter(i => i.platform === filterPlatform);
+                if (filterStatus !== 'all') filtered = filtered.filter(i => i.status === filterStatus);
+
+                if (filtered.length === 0) {
+                    emptyEl.classList.remove('hidden');
                     return;
                 }
-                
-                const id = this.pendingCompletionId;
-                const index = this.data.findIndex(i => i.id === id);
-                
-                if (index !== -1) {
-                    this.data[index].status = 'done';
-                    this.data[index].completedDate = date;
-                    this.saveData();
-                    this.celebrate();
-                }
-                
-                this.closeCompletionModal();
-                this.closeModal(); // Close main modal if open
+                emptyEl.classList.add('hidden');
+
+                filtered.forEach(item => {
+                    const isLate = item.status !== 'done' && new Date(item.date) < new Date(new Date().setHours(0,0,0,0));
+                    
+                    let statusBadge = '';
+                    if (item.status === 'done') statusBadge = '<span class="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Concluído</span>';
+                    else if (isLate) statusBadge = '<span class="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Atrasado</span>';
+                    else statusBadge = '<span class="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Pendente</span>';
+
+                    let icon = '';
+                    if(item.platform === 'instagram') icon = '<i class="fa-brands fa-instagram text-pink-600 text-lg"></i>';
+                    else if(item.platform === 'youtube') icon = '<i class="fa-brands fa-youtube text-red-600 text-lg"></i>';
+                    else if(item.platform === 'tiktok') icon = '<i class="fa-brands fa-tiktok text-gray-800 dark:text-gray-200 text-lg"></i>';
+                    else icon = '<i class="fa-solid fa-bullhorn text-amber-500 text-lg"></i>';
+
+                    let extraInfo = '';
+                    if(item.platform === 'others' && item.hasCost) {
+                        extraInfo = `<div class="text-xs text-gray-400 mt-1">Custo: R$ ${item.costValue || '0,00'}</div>`;
+                    }
+
+                    const dateFormatted = new Date(item.date).toLocaleDateString('pt-BR');
+                    const completedFormatted = item.completedDate ? new Date(item.completedDate).toLocaleDateString('pt-BR') : '-';
+
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border-b border-gray-100 dark:border-gray-700 last:border-0';
+                    row.innerHTML = `
+                        <td class="p-4 whitespace-nowrap">${statusBadge}</td>
+                        <td class="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${dateFormatted}</td>
+                        <td class="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${completedFormatted}</td>
+                        <td class="p-4 whitespace-nowrap text-sm font-medium flex items-center gap-2">${icon} <span class="capitalize text-gray-700 dark:text-gray-300">${item.type}</span></td>
+                        <td class="p-4 text-sm text-gray-900 dark:text-gray-100 font-medium">
+                            ${item.title}
+                            ${extraInfo}
+                        </td>
+                        <td class="p-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="app.toggleStatus('${item.id}')" class="text-indigo-600 hover:text-indigo-900 dark:hover:text-indigo-400 mr-3" title="Marcar como Concluído/Pendente">
+                                <i class="fa-solid fa-check-circle text-lg"></i>
+                            </button>
+                            <button onclick="app.editById('${item.id}')" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </td>
+                    `;
+                    listEl.appendChild(row);
+                });
             },
 
-            /* --- MAIN MODAL & CRUD --- */
             toggleCostFields() {
                 const platform = document.getElementById('post-platform').value;
                 const container = document.getElementById('cost-container');
@@ -731,14 +823,15 @@
                 document.getElementById('post-modal').classList.add('hidden');
             },
 
-            savePost() {
-                const id = document.getElementById('post-id').value;
+            // --- FIRESTORE ACTIONS ---
+
+            async savePost() {
+                const id = document.getElementById('post-id').value || crypto.randomUUID();
                 const status = document.getElementById('post-status').value;
                 const completedDateStored = document.getElementById('post-completed-date').value;
 
-                // Create temp object
                 const newItem = {
-                    id: id || crypto.randomUUID(),
+                    id: id,
                     title: document.getElementById('post-title').value,
                     platform: document.getElementById('post-platform').value,
                     type: document.getElementById('post-type').value,
@@ -747,7 +840,7 @@
                     status: status,
                     hasCost: document.getElementById('post-has-cost').checked,
                     costValue: document.getElementById('post-cost-value').value,
-                    completedDate: completedDateStored // Persist existing date if any
+                    completedDate: completedDateStored
                 };
 
                 if (!newItem.title || !newItem.date) {
@@ -755,48 +848,42 @@
                     return;
                 }
 
-                // Logic: If user sets status to DONE inside the modal, we need to ask for date IF it doesn't have one
+                // If Done but no date, hold and ask for date
                 if (status === 'done' && !completedDateStored) {
-                    // Save partially to data array so confirmCompletion can find it?
-                    // Better approach: Save to array as pending first, then trigger completion modal
-                    if(id) {
-                        const index = this.data.findIndex(i => i.id === id);
-                        this.data[index] = newItem;
-                        this.data[index].status = 'pending'; // revert to pending until confirmed
-                    } else {
-                        newItem.status = 'pending';
-                        this.data.push(newItem);
-                    }
-                    this.saveData(); // Save the edit
-                    this.triggerCompletion(newItem.id); // Ask for date
-                    return; // Stop here, completion modal handles the rest
+                    this.pendingNewItem = newItem; // Store temporary
+                    this.triggerCompletion(id);
+                    return; 
                 }
 
-                // Normal Save
-                if (id) {
-                    const index = this.data.findIndex(i => i.id === id);
-                    this.data[index] = newItem;
-                    
-                    // If moving OUT of done, clear date
-                    if (status !== 'done') {
-                        this.data[index].completedDate = null;
-                    }
-                } else {
-                    this.data.push(newItem);
+                if (status !== 'done') {
+                    newItem.completedDate = null;
                 }
 
-                this.saveData();
-                this.closeModal();
-                this.showToast('Salvo com sucesso!');
+                // Save to Firestore
+                try {
+                   await window.firebaseOps.setDoc(
+                       window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id), 
+                       newItem
+                   );
+                   this.closeModal();
+                   this.showToast('Salvo na nuvem com sucesso!');
+                } catch (e) {
+                   alert('Erro ao salvar: ' + e.message);
+                }
             },
 
-            deletePost() {
+            async deletePost() {
                 const id = document.getElementById('post-id').value;
-                if(confirm('Tem certeza que deseja excluir?')) {
-                    this.data = this.data.filter(i => i.id !== id);
-                    this.saveData();
-                    this.closeModal();
-                    this.showToast('Item excluído.');
+                if(confirm('Tem certeza que deseja excluir este item da nuvem?')) {
+                    try {
+                        await window.firebaseOps.deleteDoc(
+                            window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id)
+                        );
+                        this.closeModal();
+                        this.showToast('Item excluído.');
+                    } catch(e) {
+                        alert('Erro ao excluir: ' + e.message);
+                    }
                 }
             },
 
@@ -805,20 +892,73 @@
                 if(item) this.openModal(item);
             },
 
-            toggleStatus(id) {
+            async toggleStatus(id) {
                 const item = this.data.find(i => i.id === id);
                 if(item) {
                     if (item.status === 'done') {
-                        // Un-complete
-                        item.status = 'pending';
-                        item.completedDate = null;
-                        this.saveData();
+                        // Revert
+                        await window.firebaseOps.updateDoc(
+                             window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id),
+                             { status: 'pending', completedDate: null }
+                        );
                         this.showToast('Status revertido para pendente.');
                     } else {
-                        // Complete -> Ask for Date
+                        // Ask for date
                         this.triggerCompletion(id);
                     }
                 }
+            },
+
+            triggerCompletion(id) {
+                this.pendingCompletionId = id;
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('completion-date-input').value = today;
+                document.getElementById('completion-modal').classList.remove('hidden');
+            },
+
+            closeCompletionModal() {
+                document.getElementById('completion-modal').classList.add('hidden');
+                this.pendingCompletionId = null;
+                this.pendingNewItem = null;
+            },
+
+            async confirmCompletion() {
+                const date = document.getElementById('completion-date-input').value;
+                if (!date) {
+                    alert('Por favor, informe a data.');
+                    return;
+                }
+                
+                // If it was a NEW/EDIT item pending save
+                if (this.pendingNewItem) {
+                    this.pendingNewItem.status = 'done';
+                    this.pendingNewItem.completedDate = date;
+                    
+                    try {
+                        await window.firebaseOps.setDoc(
+                           window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingNewItem.id), 
+                           this.pendingNewItem
+                        );
+                        this.celebrate();
+                        this.closeModal();
+                    } catch(e) {
+                        alert('Erro ao salvar: ' + e.message);
+                    }
+                } 
+                // If it was a list toggle action
+                else if (this.pendingCompletionId) {
+                     try {
+                        await window.firebaseOps.updateDoc(
+                             window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingCompletionId),
+                             { status: 'done', completedDate: date }
+                        );
+                        this.celebrate();
+                    } catch(e) {
+                        alert('Erro ao atualizar: ' + e.message);
+                    }
+                }
+                
+                this.closeCompletionModal();
             },
 
             celebrate() {
