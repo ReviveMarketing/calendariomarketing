@@ -53,13 +53,13 @@
         try {
             firebaseConfig = JSON.parse(__firebase_config);
         } catch (e) {
-            console.error("Erro na config do Firebase:", e);
+            console.warn("Modo Offline ativado por falta de config.");
             firebaseConfig = {}; 
         }
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Inicializa apenas se houver config, senão sinaliza erro
+        // Inicializa apenas se houver config válida
         if (Object.keys(firebaseConfig).length > 0) {
             try {
                 const firebaseApp = initializeApp(firebaseConfig);
@@ -84,17 +84,17 @@
                         window.isFirebaseReady = true; // Sinaliza sucesso
                     } catch (error) {
                         console.error("Erro de Autenticação:", error);
-                        window.firebaseInitializationError = true; // Sinaliza erro de auth
+                        window.firebaseInitializationError = true;
                     }
                 };
                 initAuth();
             } catch (err) {
                 console.error("Erro ao inicializar app:", err);
-                window.firebaseInitializationError = true; // Sinaliza erro de init
+                window.firebaseInitializationError = true;
             }
         } else {
-            console.error("Configuração do Firebase vazia ou inválida.");
-            window.firebaseInitializationError = true; // Sinaliza erro de config
+            console.warn("Configuração do Firebase vazia.");
+            window.firebaseInitializationError = true;
         }
     </script>
 
@@ -316,7 +316,7 @@
                         </div>
                         <div id="loading-state" class="hidden p-8 text-center text-indigo-500">
                             <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-3"></i>
-                            <p>Carregando dados da nuvem...</p>
+                            <p>Carregando dados...</p>
                         </div>
                         <div id="empty-state" class="hidden p-8 text-center text-gray-500">
                             <i class="fa-solid fa-cloud text-4xl mb-3 opacity-30"></i>
@@ -460,6 +460,7 @@
         const app = {
             data: [],
             calendarInstance: null,
+            offlineMode: false,
             charts: { status: null, platform: null },
             pendingCompletionId: null,
             pendingNewItem: null,
@@ -477,25 +478,21 @@
             ],
             
             init() {
-                // Monitoramento de conexão com timeout de 30s
+                // Monitoramento de conexão com timeout de 15s (reduzido para não frustrar)
                 let attempts = 0;
-                const maxAttempts = 30; // 30 segundos
+                const maxAttempts = 15; 
 
                 const checkFirebase = setInterval(() => {
                     attempts++;
                     
                     if (window.isFirebaseReady) {
                         clearInterval(checkFirebase);
+                        this.offlineMode = false;
                         document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
                         this.setupRealtimeListener();
-                    } else if (window.firebaseInitializationError) {
+                    } else if (window.firebaseInitializationError || attempts >= maxAttempts) {
                         clearInterval(checkFirebase);
-                        document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1" title="Erro de config"><i class="fa-solid fa-circle-exclamation"></i> Erro</span>';
-                        alert("Não foi possível conectar ao servidor de dados (Cloud). Tente recarregar a página.");
-                    } else if (attempts >= maxAttempts) {
-                        clearInterval(checkFirebase);
-                        document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> Timeout</span>';
-                        console.log("Tempo limite excedido aguardando conexão.");
+                        this.enableOfflineMode();
                     }
                 }, 1000);
                 
@@ -515,6 +512,34 @@
                 });
 
                 this.navigate('dashboard');
+            },
+
+            enableOfflineMode() {
+                this.offlineMode = true;
+                console.log("Ativando modo offline...");
+                document.getElementById('connection-status').innerHTML = '<span class="text-gray-500 font-bold flex items-center gap-1" title="Dados salvos apenas neste dispositivo"><i class="fa-solid fa-wifi"></i> Modo Offline</span>';
+                document.getElementById('loading-state').classList.add('hidden');
+                
+                // Load Local Data
+                const localData = localStorage.getItem('marketingPlannerData_offline');
+                if (localData) {
+                    this.data = JSON.parse(localData);
+                } else {
+                    this.data = [];
+                }
+                
+                if (this.data.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                } else {
+                    document.getElementById('empty-state').classList.add('hidden');
+                }
+                
+                this.refreshCurrentView();
+                this.showToast('Modo Offline Ativado', 'Seus dados serão salvos localmente.', false);
+            },
+
+            saveLocal() {
+                localStorage.setItem('marketingPlannerData_offline', JSON.stringify(this.data));
             },
 
             setupRealtimeListener() {
@@ -543,7 +568,7 @@
                     this.refreshCurrentView();
                 }, (error) => {
                     console.error("Error fetching data: ", error);
-                    // Silently handle if permission issue initially
+                    this.enableOfflineMode(); // Fallback on runtime error
                 });
             },
 
@@ -870,87 +895,117 @@
                 return Date.now().toString(36) + Math.random().toString(36).substring(2);
             },
 
-            // --- FIRESTORE ACTIONS ---
+            // --- SAVE LOGIC (Hybrid: Cloud or Offline) ---
 
             async savePost() {
                 const btnSave = document.getElementById('btn-save-post');
                 const saveText = document.getElementById('save-text');
                 const saveIcon = document.getElementById('save-icon');
 
-                if (!window.firebaseOps || !window.isFirebaseReady) {
-                    alert("Aguarde a conexão com o banco de dados...");
+                // UI Feedback
+                btnSave.disabled = true;
+                saveText.innerText = 'Salvando...';
+                saveIcon.classList.remove('hidden');
+                saveIcon.classList.add('fa-spin');
+
+                // Prepare Data
+                const id = document.getElementById('post-id').value || this.generateId();
+                const status = document.getElementById('post-status').value;
+                const completedDateStored = document.getElementById('post-completed-date').value;
+
+                const newItem = {
+                    id: id,
+                    title: document.getElementById('post-title').value,
+                    platform: document.getElementById('post-platform').value,
+                    type: document.getElementById('post-type').value,
+                    date: document.getElementById('post-date').value,
+                    description: document.getElementById('post-desc').value,
+                    status: status,
+                    hasCost: document.getElementById('post-has-cost').checked,
+                    costValue: document.getElementById('post-cost-value').value,
+                    completedDate: completedDateStored
+                };
+
+                if (!newItem.title || !newItem.date) {
+                    alert('Preencha pelo menos o título e a data.');
+                    this.resetSaveBtn();
                     return;
                 }
 
-                try {
-                    // UI Feedback
-                    btnSave.disabled = true;
-                    saveText.innerText = 'Salvando...';
-                    saveIcon.classList.remove('hidden');
-                    saveIcon.classList.add('fa-spin');
+                // If Done but no date, hold and ask for date
+                if (status === 'done' && !completedDateStored) {
+                    this.pendingNewItem = newItem; 
+                    this.triggerCompletion(id);
+                    // Modal handles final save
+                    return; 
+                }
 
-                    const id = document.getElementById('post-id').value || this.generateId();
-                    const status = document.getElementById('post-status').value;
-                    const completedDateStored = document.getElementById('post-completed-date').value;
+                if (status !== 'done') {
+                    newItem.completedDate = null;
+                }
 
-                    const newItem = {
-                        id: id,
-                        title: document.getElementById('post-title').value,
-                        platform: document.getElementById('post-platform').value,
-                        type: document.getElementById('post-type').value,
-                        date: document.getElementById('post-date').value,
-                        description: document.getElementById('post-desc').value,
-                        status: status,
-                        hasCost: document.getElementById('post-has-cost').checked,
-                        costValue: document.getElementById('post-cost-value').value,
-                        completedDate: completedDateStored
-                    };
-
-                    if (!newItem.title || !newItem.date) {
-                        alert('Preencha pelo menos o título e a data.');
-                        // Reset UI
-                        btnSave.disabled = false;
-                        saveText.innerText = 'Salvar';
-                        saveIcon.classList.add('hidden');
-                        saveIcon.classList.remove('fa-spin');
+                // --- SAVE EXECUTION ---
+                if (this.offlineMode) {
+                    // MODO OFFLINE
+                    const index = this.data.findIndex(i => i.id === newItem.id);
+                    if(index >= 0) this.data[index] = newItem;
+                    else this.data.push(newItem);
+                    
+                    this.saveLocal();
+                    this.refreshCurrentView();
+                    this.closeModal();
+                    this.showToast('Salvo (Modo Offline)', 'Dados salvos localmente.');
+                } else {
+                    // MODO CLOUD
+                    if (!window.firebaseOps || !window.isFirebaseReady) {
+                        // Fallback inesperado
+                        alert("Erro de conexão. Ativando modo offline...");
+                        this.enableOfflineMode();
+                        this.savePost(); // Tenta salvar de novo no modo offline
                         return;
                     }
-
-                    // Se marcou concluído no form, mas não tem data, pausa e pede data
-                    if (status === 'done' && !completedDateStored) {
-                        this.pendingNewItem = newItem; 
-                        this.triggerCompletion(id);
-                        // Nota: o modal de conclusão cuidará do salvamento final
-                        return; 
+                    try {
+                        await window.firebaseOps.setDoc(
+                           window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id), 
+                           newItem
+                        );
+                        this.closeModal();
+                        this.showToast('Salvo na nuvem com sucesso!');
+                    } catch (e) {
+                       console.error(e);
+                       // Fallback se falhar
+                       if(confirm("Falha ao salvar na nuvem. Deseja salvar localmente (Offline)?")) {
+                            this.enableOfflineMode();
+                            this.savePost();
+                       } else {
+                           this.resetSaveBtn();
+                       }
                     }
-
-                    if (status !== 'done') {
-                        newItem.completedDate = null;
-                    }
-
-                    // Save to Firestore
-                    await window.firebaseOps.setDoc(
-                       window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id), 
-                       newItem
-                    );
-                    this.closeModal();
-                    this.showToast('Salvo na nuvem com sucesso!');
-                    
-                } catch (e) {
-                   console.error(e);
-                   alert('Erro ao salvar. Verifique sua conexão. ' + e.message);
-                   // Reset UI on error
-                   btnSave.disabled = false;
-                   saveText.innerText = 'Salvar';
-                   saveIcon.classList.add('hidden');
-                   saveIcon.classList.remove('fa-spin');
                 }
             },
 
+            resetSaveBtn() {
+                const btnSave = document.getElementById('btn-save-post');
+                const saveText = document.getElementById('save-text');
+                const saveIcon = document.getElementById('save-icon');
+                btnSave.disabled = false;
+                saveText.innerText = 'Salvar';
+                saveIcon.classList.add('hidden');
+                saveIcon.classList.remove('fa-spin');
+            },
+
             async deletePost() {
-                if (!window.firebaseOps) return;
                 const id = document.getElementById('post-id').value;
-                if(confirm('Tem certeza que deseja excluir este item da nuvem?')) {
+                if(!confirm('Tem certeza que deseja excluir?')) return;
+
+                if (this.offlineMode) {
+                    this.data = this.data.filter(i => i.id !== id);
+                    this.saveLocal();
+                    this.refreshCurrentView();
+                    this.closeModal();
+                    this.showToast('Excluído (Modo Offline)');
+                } else {
+                    if (!window.firebaseOps) return;
                     try {
                         await window.firebaseOps.deleteDoc(
                             window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id)
@@ -969,11 +1024,18 @@
             },
 
             async toggleStatus(id) {
-                if (!window.firebaseOps) return;
                 const item = this.data.find(i => i.id === id);
-                if(item) {
-                    if (item.status === 'done') {
-                        // Revert
+                if(!item) return;
+
+                if (item.status === 'done') {
+                    // Revert to pending
+                    if (this.offlineMode) {
+                        item.status = 'pending';
+                        item.completedDate = null;
+                        this.saveLocal();
+                        this.refreshCurrentView();
+                        this.showToast('Status revertido (Offline)');
+                    } else {
                         try {
                             await window.firebaseOps.updateDoc(
                                  window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id),
@@ -981,12 +1043,13 @@
                             );
                             this.showToast('Status revertido para pendente.');
                         } catch (e) {
-                            alert("Erro ao atualizar status: " + e.message);
+                            console.error(e);
+                            this.enableOfflineMode();
                         }
-                    } else {
-                        // Ask for date
-                        this.triggerCompletion(id);
                     }
+                } else {
+                    // Ask for date -> Calls confirmCompletion
+                    this.triggerCompletion(id);
                 }
             },
 
@@ -1001,51 +1064,61 @@
                 document.getElementById('completion-modal').classList.add('hidden');
                 this.pendingCompletionId = null;
                 this.pendingNewItem = null;
-                
-                // Reset save button state just in case we came from modal
-                const btnSave = document.getElementById('btn-save-post');
-                if(btnSave) {
-                    btnSave.disabled = false;
-                    document.getElementById('save-text').innerText = 'Salvar';
-                    document.getElementById('save-icon').classList.add('hidden');
-                    document.getElementById('save-icon').classList.remove('fa-spin');
-                }
+                this.resetSaveBtn(); // Just in case
             },
 
             async confirmCompletion() {
-                if (!window.firebaseOps) return;
-
                 const date = document.getElementById('completion-date-input').value;
                 if (!date) {
                     alert('Por favor, informe a data.');
                     return;
                 }
                 
-                try {
-                    // Se veio de um item NOVO/EDITADO pendente de salvar
+                // --- OFFLINE COMPLETION ---
+                if (this.offlineMode) {
                     if (this.pendingNewItem) {
                         this.pendingNewItem.status = 'done';
                         this.pendingNewItem.completedDate = date;
-                        
+                        this.data.push(this.pendingNewItem);
+                        this.closeModal();
+                    } else if (this.pendingCompletionId) {
+                        const item = this.data.find(i => i.id === this.pendingCompletionId);
+                        if(item) {
+                            item.status = 'done';
+                            item.completedDate = date;
+                        }
+                    }
+                    this.saveLocal();
+                    this.refreshCurrentView();
+                    this.celebrate();
+                    this.closeCompletionModal();
+                    return;
+                }
+
+                // --- CLOUD COMPLETION ---
+                if (!window.firebaseOps) return;
+                
+                try {
+                    if (this.pendingNewItem) {
+                        this.pendingNewItem.status = 'done';
+                        this.pendingNewItem.completedDate = date;
                         await window.firebaseOps.setDoc(
                            window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingNewItem.id), 
                            this.pendingNewItem
                         );
-                        this.celebrate();
                         this.closeModal();
                     } 
-                    // Se foi uma ação de toggle na lista
                     else if (this.pendingCompletionId) {
                         await window.firebaseOps.updateDoc(
                              window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingCompletionId),
                              { status: 'done', completedDate: date }
                         );
-                        this.celebrate();
                     }
+                    this.celebrate();
                     this.closeCompletionModal();
                 } catch(e) {
                     alert('Erro ao salvar conclusão: ' + e.message);
-                    this.closeCompletionModal(); // Close anyway to avoid stuck state
+                    this.closeCompletionModal(); 
                 }
             },
 
