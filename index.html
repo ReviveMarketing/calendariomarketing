@@ -48,43 +48,51 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration using Global Variables
-        // Ensure config is valid or provide fallback to prevent crash
+        // Configuração Firebase Segura
         let firebaseConfig;
         try {
             firebaseConfig = JSON.parse(__firebase_config);
         } catch (e) {
-            console.error("Firebase config error:", e);
-            firebaseConfig = {}; // Fallback to prevent immediate crash, though auth will fail
+            console.error("Erro na config do Firebase:", e);
+            // Fallback silencioso para não quebrar a UI inteira imediatamente
+            firebaseConfig = {}; 
         }
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        const firebaseApp = initializeApp(firebaseConfig);
-        const auth = getAuth(firebaseApp);
-        const db = getFirestore(firebaseApp);
-
-        // Expose to Global Scope for the existing 'app' logic
-        window.db = db;
-        window.auth = auth;
-        window.appId = appId;
-        window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+        // Inicializa apenas se houver config, senão loga erro
+        let firebaseApp, auth, db;
         
-        // Initialize Auth
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+        if (Object.keys(firebaseConfig).length > 0) {
+            firebaseApp = initializeApp(firebaseConfig);
+            auth = getAuth(firebaseApp);
+            db = getFirestore(firebaseApp);
+
+            // Expor para o escopo global
+            window.db = db;
+            window.auth = auth;
+            window.appId = appId;
+            window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+            
+            // Autenticação
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    console.log("Autenticado com sucesso");
+                    // Sinaliza que o Firebase está pronto
+                    window.isFirebaseReady = true;
+                } catch (error) {
+                    console.error("Erro de Autenticação:", error);
                 }
-            } catch (error) {
-                console.error("Auth Error:", error);
-                // Alert user if auth fails criticaly
-                // alert("Erro na autenticação. Recarregue a página.");
-            }
-        };
-        initAuth();
+            };
+            initAuth();
+        } else {
+            console.error("Configuração do Firebase vazia ou inválida.");
+        }
     </script>
 
     <style>
@@ -132,8 +140,8 @@
 
             <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                <div class="text-xs text-center text-gray-400 mb-2">
-                    <i class="fa-solid fa-cloud text-indigo-500"></i> Dados na Nuvem (Compartilhado)
+                <div class="text-xs text-center text-gray-400 mb-2 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-cloud text-indigo-500"></i> <span id="connection-status">Conectando...</span>
                 </div>
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                     <i class="fa-solid fa-moon dark:hidden mr-2"></i>
@@ -172,7 +180,7 @@
 
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <!-- Card 1: Produtividade (NOVO) -->
+                        <!-- Card 1: Produtividade -->
                         <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-md border border-indigo-500 flex flex-col justify-between relative overflow-hidden">
                             <div class="z-10">
                                 <p class="text-indigo-100 text-sm font-medium mb-1">Pontualidade</p>
@@ -397,7 +405,9 @@
                         </div>
                     </div>
                     <div class="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <button type="button" onclick="app.savePost()" class="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto transition">Salvar</button>
+                        <button type="button" id="btn-save-post" onclick="app.savePost()" class="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto transition disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-cloud-arrow-up mr-2 hidden" id="save-icon"></i> <span id="save-text">Salvar</span>
+                        </button>
                         <button type="button" onclick="app.deletePost()" id="btn-delete" class="hidden inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto transition">Excluir</button>
                         <button type="button" onclick="app.closeModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-600 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto transition">Cancelar</button>
                     </div>
@@ -449,7 +459,7 @@
             calendarInstance: null,
             charts: { status: null, platform: null },
             pendingCompletionId: null,
-            pendingNewItem: null, // Temp storage for new item pending date
+            pendingNewItem: null,
             quotes: [
                 "Fantástico! Mais uma meta alcançada!",
                 "Você está mandando muito bem!",
@@ -464,18 +474,21 @@
             ],
             
             init() {
-                // Wait for Firebase to be ready before rendering
-                const waitAuth = setInterval(() => {
-                    if (window.auth && window.auth.currentUser) {
-                        clearInterval(waitAuth);
+                // Tenta conectar, mas não trava se falhar de imediato
+                const checkFirebase = setInterval(() => {
+                    if (window.isFirebaseReady) {
+                        clearInterval(checkFirebase);
+                        document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold">Conectado</span>';
                         this.setupRealtimeListener();
                     }
-                }, 500);
-
-                // Setup fallback if auth takes too long
+                }, 1000);
+                
+                // Timeout para aviso visual se demorar
                 setTimeout(() => {
-                   if(window.auth && !window.auth.currentUser) this.setupRealtimeListener();
-                }, 4000); // Increased timeout slightly
+                    if (!window.isFirebaseReady) {
+                        document.getElementById('connection-status').innerHTML = '<span class="text-yellow-500">Tentando conectar...</span>';
+                    }
+                }, 5000);
 
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -493,10 +506,7 @@
             },
 
             setupRealtimeListener() {
-                if (!window.db || !window.firebaseOps) {
-                    console.error("Firebase SDK not loaded.");
-                    return;
-                }
+                if (!window.firebaseOps) return;
                 
                 const { collection, onSnapshot, query } = window.firebaseOps;
                 const postsRef = collection(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts');
@@ -521,10 +531,7 @@
                     this.refreshCurrentView();
                 }, (error) => {
                     console.error("Error fetching data: ", error);
-                    // Handle specific auth errors silently or show message
-                    if(error.code !== 'permission-denied') {
-                        document.getElementById('loading-state').innerHTML = `<span class="text-red-500">Erro ao carregar. Recarregue a página.</span>`;
-                    }
+                    // Silently handle if permission issue initially
                 });
             },
 
@@ -532,10 +539,8 @@
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) this.renderDashboard();
                 if (!document.getElementById('view-activities').classList.contains('hidden')) this.renderActivities();
                 if (!document.getElementById('view-calendar').classList.contains('hidden')) {
-                     // Calendar needs a full re-render sometimes if instance doesn't exist
                      if(this.calendarInstance) {
                          this.calendarInstance.refetchEvents();
-                         // Sometimes hard refresh is needed if data structure changed wildly
                      } else {
                          this.initCalendar();
                      }
@@ -565,7 +570,7 @@
             },
 
             renderDashboard() {
-                if(!document.getElementById('kpi-done')) return; // Guard clause
+                if(!document.getElementById('kpi-done')) return; 
 
                 const today = new Date().toISOString().split('T')[0];
                 const total = this.data.length;
@@ -800,8 +805,13 @@
                 const modal = document.getElementById('post-modal');
                 const title = document.getElementById('modal-title');
                 const btnDelete = document.getElementById('btn-delete');
+                const btnSave = document.getElementById('btn-save-post');
                 
                 modal.classList.remove('hidden');
+                // Reset save button state
+                btnSave.disabled = false;
+                document.getElementById('save-text').innerText = 'Salvar';
+                document.getElementById('save-icon').classList.add('hidden');
 
                 if (existingItem) {
                     title.innerText = 'Editar Postagem';
@@ -838,7 +848,7 @@
                 document.getElementById('post-modal').classList.add('hidden');
             },
 
-            // Safe ID Generator to replace crypto.randomUUID for better compatibility
+            // Safe ID Generator
             generateId() {
                 if (typeof crypto !== 'undefined' && crypto.randomUUID) {
                     try {
@@ -851,12 +861,22 @@
             // --- FIRESTORE ACTIONS ---
 
             async savePost() {
-                if (!window.firebaseOps) {
-                    alert("A conexão com o banco de dados ainda não foi estabelecida. Aguarde um momento.");
+                const btnSave = document.getElementById('btn-save-post');
+                const saveText = document.getElementById('save-text');
+                const saveIcon = document.getElementById('save-icon');
+
+                if (!window.firebaseOps || !window.isFirebaseReady) {
+                    alert("Aguarde a conexão com o banco de dados...");
                     return;
                 }
 
                 try {
+                    // UI Feedback
+                    btnSave.disabled = true;
+                    saveText.innerText = 'Salvando...';
+                    saveIcon.classList.remove('hidden');
+                    saveIcon.classList.add('fa-spin');
+
                     const id = document.getElementById('post-id').value || this.generateId();
                     const status = document.getElementById('post-status').value;
                     const completedDateStored = document.getElementById('post-completed-date').value;
@@ -876,13 +896,19 @@
 
                     if (!newItem.title || !newItem.date) {
                         alert('Preencha pelo menos o título e a data.');
+                        // Reset UI
+                        btnSave.disabled = false;
+                        saveText.innerText = 'Salvar';
+                        saveIcon.classList.add('hidden');
+                        saveIcon.classList.remove('fa-spin');
                         return;
                     }
 
-                    // If Done but no date, hold and ask for date
+                    // Se marcou concluído no form, mas não tem data, pausa e pede data
                     if (status === 'done' && !completedDateStored) {
-                        this.pendingNewItem = newItem; // Store temporary
+                        this.pendingNewItem = newItem; 
                         this.triggerCompletion(id);
+                        // Nota: o modal de conclusão cuidará do salvamento final
                         return; 
                     }
 
@@ -901,6 +927,11 @@
                 } catch (e) {
                    console.error(e);
                    alert('Erro ao salvar. Verifique sua conexão. ' + e.message);
+                   // Reset UI on error
+                   btnSave.disabled = false;
+                   saveText.innerText = 'Salvar';
+                   saveIcon.classList.add('hidden');
+                   saveIcon.classList.remove('fa-spin');
                 }
             },
 
@@ -958,6 +989,15 @@
                 document.getElementById('completion-modal').classList.add('hidden');
                 this.pendingCompletionId = null;
                 this.pendingNewItem = null;
+                
+                // Reset save button state just in case we came from modal
+                const btnSave = document.getElementById('btn-save-post');
+                if(btnSave) {
+                    btnSave.disabled = false;
+                    document.getElementById('save-text').innerText = 'Salvar';
+                    document.getElementById('save-icon').classList.add('hidden');
+                    document.getElementById('save-icon').classList.remove('fa-spin');
+                }
             },
 
             async confirmCompletion() {
@@ -970,7 +1010,7 @@
                 }
                 
                 try {
-                    // If it was a NEW/EDIT item pending save
+                    // Se veio de um item NOVO/EDITADO pendente de salvar
                     if (this.pendingNewItem) {
                         this.pendingNewItem.status = 'done';
                         this.pendingNewItem.completedDate = date;
@@ -982,7 +1022,7 @@
                         this.celebrate();
                         this.closeModal();
                     } 
-                    // If it was a list toggle action
+                    // Se foi uma ação de toggle na lista
                     else if (this.pendingCompletionId) {
                         await window.firebaseOps.updateDoc(
                              window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingCompletionId),
@@ -993,6 +1033,7 @@
                     this.closeCompletionModal();
                 } catch(e) {
                     alert('Erro ao salvar conclusão: ' + e.message);
+                    this.closeCompletionModal(); // Close anyway to avoid stuck state
                 }
             },
 
@@ -1057,3 +1098,4 @@
     </script>
 </body>
 </html>
+
