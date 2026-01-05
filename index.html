@@ -33,7 +33,7 @@
     <!-- FullCalendar -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 
-    <!-- Canvas Confetti (Para a celebração) -->
+    <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <!-- FontAwesome -->
@@ -44,14 +44,10 @@
 
     <style>
         body { font-family: 'Inter', sans-serif; }
-        
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
-
-        /* FullCalendar Overrides for Tailwind compatibility */
         .fc-theme-standard td, .fc-theme-standard th { border-color: #e2e8f0; }
         .dark .fc-theme-standard td, .dark .fc-theme-standard th { border-color: #334155; }
         .fc-day-today { background-color: #f1f5f9 !important; }
@@ -67,7 +63,7 @@
         
         <!-- Sidebar -->
         <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col z-10">
-            <!-- LOGO AREA (LIMPA - APENAS TEXTO) -->
+            <!-- LOGO AREA -->
             <div class="p-6 flex flex-col items-center justify-center border-b border-gray-200 dark:border-gray-700 text-center">
                 <h1 class="text-xl font-bold text-gray-900 dark:text-white tracking-tight leading-tight">
                     ReVive Assessoria
@@ -89,11 +85,21 @@
                 </button>
             </nav>
 
-            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+            <!-- Backup & Theme Area -->
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="app.backupData()" class="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-gray-600 transition text-xs text-indigo-700 dark:text-indigo-300">
+                        <i class="fa-solid fa-download mb-1"></i> Backup
+                    </button>
+                    <label class="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50 dark:bg-gray-700 hover:bg-indigo-100 dark:hover:bg-gray-600 transition text-xs text-indigo-700 dark:text-indigo-300 cursor-pointer">
+                        <i class="fa-solid fa-upload mb-1"></i> Restaurar
+                        <input type="file" id="restore-file" class="hidden" accept=".json" onchange="app.restoreData(this)">
+                    </label>
+                </div>
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                     <i class="fa-solid fa-moon dark:hidden mr-2"></i>
                     <i class="fa-solid fa-sun hidden dark:inline mr-2 text-yellow-400"></i>
-                    <span class="text-sm font-medium">Alternar Tema</span>
+                    <span class="text-sm font-medium">Tema</span>
                 </button>
             </div>
         </aside>
@@ -127,16 +133,22 @@
 
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Planejado</p>
-                                <h3 class="text-3xl font-bold mt-1" id="kpi-total">0</h3>
+                        <!-- Card 1: Produtividade (NOVO) -->
+                        <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-md border border-indigo-500 flex flex-col justify-between relative overflow-hidden">
+                            <div class="z-10">
+                                <p class="text-indigo-100 text-sm font-medium mb-1">Pontualidade</p>
+                                <div class="flex items-baseline">
+                                    <h3 class="text-4xl font-bold" id="kpi-productivity">0%</h3>
+                                    <span class="ml-2 text-sm text-indigo-200">no prazo</span>
+                                </div>
+                                <p class="text-xs text-indigo-200 mt-2" id="kpi-productivity-desc">Baseado em 0 tarefas concluídas</p>
                             </div>
-                            <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300">
-                                <i class="fa-solid fa-layer-group text-xl"></i>
+                            <div class="absolute right-[-10px] bottom-[-10px] opacity-20 text-6xl">
+                                <i class="fa-solid fa-stopwatch"></i>
                             </div>
                         </div>
 
+                        <!-- Card 2: Concluídas -->
                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Concluídas</p>
@@ -147,6 +159,7 @@
                             </div>
                         </div>
 
+                        <!-- Card 3: Pendentes -->
                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Pendentes</p>
@@ -157,6 +170,7 @@
                             </div>
                         </div>
 
+                        <!-- Card 4: Atrasadas -->
                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Atrasadas</p>
@@ -238,7 +252,8 @@
                                 <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
                                     <tr>
                                         <th class="p-4 font-semibold">Status</th>
-                                        <th class="p-4 font-semibold">Data</th>
+                                        <th class="p-4 font-semibold">Data Planejada</th>
+                                        <th class="p-4 font-semibold">Concluído em</th>
                                         <th class="p-4 font-semibold">Rede / Tipo</th>
                                         <th class="p-4 font-semibold">Título</th>
                                         <th class="p-4 font-semibold text-right">Ações</th>
@@ -260,7 +275,7 @@
         </main>
     </div>
 
-    <!-- MODAL (Add/Edit) -->
+    <!-- MAIN FORM MODAL (Add/Edit) -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" onclick="app.closeModal()"></div>
         <div class="fixed inset-0 z-10 overflow-y-auto">
@@ -273,6 +288,7 @@
                                 <h3 class="text-xl font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4" id="modal-title">Nova Postagem</h3>
                                 <form id="post-form" class="space-y-4">
                                     <input type="hidden" id="post-id">
+                                    <input type="hidden" id="post-completed-date">
                                     
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título / Nome</label>
@@ -327,6 +343,7 @@
 
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                                        <!-- Note: Changing to Done here will trigger the date prompt via JS -->
                                         <select id="post-status" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
                                             <option value="pending">Pendente</option>
                                             <option value="in_progress">Em Andamento</option>
@@ -347,8 +364,36 @@
         </div>
     </div>
 
+    <!-- COMPLETION DATE MODAL (New) -->
+    <div id="completion-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900 bg-opacity-80 transition-opacity backdrop-blur-sm"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:w-full sm:max-w-sm border border-indigo-500 border-t-4">
+                    <div class="p-6">
+                        <div class="text-center">
+                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900 mb-4">
+                                <i class="fa-solid fa-flag-checkered text-green-600 dark:text-green-400 text-xl"></i>
+                            </div>
+                            <h3 class="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">Tarefa Concluída!</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Quando você finalizou esta atividade?</p>
+                            
+                            <div class="mt-4">
+                                <input type="date" id="completion-date-input" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border text-center font-semibold">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" onclick="app.confirmCompletion()" class="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 sm:ml-3 sm:w-auto transition">Confirmar</button>
+                        <button type="button" onclick="app.closeCompletionModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-600 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto transition">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-3">
+    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-[70] flex items-center gap-3">
         <i id="toast-icon" class="fa-solid fa-circle-check text-green-400 hidden"></i>
         <div class="flex flex-col">
             <span id="toast-msg" class="font-medium">Mensagem</span>
@@ -364,6 +409,7 @@
             data: [],
             calendarInstance: null,
             charts: { status: null, platform: null },
+            pendingCompletionId: null, // Holds ID while waiting for date
             quotes: [
                 "Fantástico! Mais uma meta alcançada!",
                 "Você está mandando muito bem!",
@@ -378,28 +424,20 @@
             ],
             
             init() {
-                // 1. Load Data
                 this.loadData();
-                
-                // 2. Set Date in Dashboard
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-                // 3. Init Theme
                 if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                     document.documentElement.classList.add('dark');
                 }
 
-                // 4. Init Mobile Menu
                 document.getElementById('mobile-menu-btn').addEventListener('click', () => {
                     document.querySelector('aside').classList.toggle('hidden');
                     document.querySelector('aside').classList.toggle('absolute');
                     document.querySelector('aside').classList.toggle('h-full');
                 });
 
-                // 5. Initial Render
                 this.renderDashboard();
-                
-                // 6. Navigation Logic
                 this.navigate('dashboard');
             },
 
@@ -413,8 +451,46 @@
                 this.refreshCurrentView();
             },
 
+            backupData() {
+                const dataStr = JSON.stringify(this.data, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `backup_marketing_planner_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                this.showToast('Backup baixado com sucesso!');
+            },
+
+            restoreData(input) {
+                const file = input.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        if (Array.isArray(json)) {
+                            if(confirm('Isso irá substituir todos os dados atuais pelos do arquivo. Continuar?')) {
+                                this.data = json;
+                                this.saveData();
+                                this.showToast('Dados restaurados com sucesso!', '', true);
+                                this.renderDashboard();
+                            }
+                        } else {
+                            alert('Arquivo inválido.');
+                        }
+                    } catch (err) {
+                        alert('Erro ao ler arquivo.');
+                    }
+                    input.value = ''; // Reset input
+                };
+                reader.readAsText(file);
+            },
+
             refreshCurrentView() {
-                // Determine visible view and refresh
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) this.renderDashboard();
                 if (!document.getElementById('view-activities').classList.contains('hidden')) this.renderActivities();
                 if (!document.getElementById('view-calendar').classList.contains('hidden') && this.calendarInstance) {
@@ -423,73 +499,86 @@
             },
 
             navigate(target) {
-                // 1. Update Buttons
                 document.querySelectorAll('.nav-item').forEach(btn => {
                     const isTarget = btn.dataset.target === target;
                     btn.classList.toggle('bg-indigo-50', isTarget);
                     btn.classList.toggle('dark:bg-gray-700', isTarget);
                     btn.classList.toggle('text-indigo-600', isTarget);
                     
-                    // Reset others
                     if(!isTarget) {
                        btn.classList.remove('bg-indigo-50', 'text-indigo-600');
                        btn.classList.add('text-gray-600', 'dark:text-gray-300');
                     }
                 });
 
-                // 2. Hide all views
                 document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-
-                // 3. Show target view
                 const targetEl = document.getElementById(`view-${target}`);
                 targetEl.classList.remove('hidden');
 
-                // 4. View Specific Logic
                 if (target === 'dashboard') this.renderDashboard();
                 if (target === 'activities') this.renderActivities();
                 if (target === 'calendar') this.initCalendar();
             },
 
-            /* --- DASHBOARD LOGIC --- */
+            /* --- DASHBOARD LOGIC (WITH PRODUCTIVITY) --- */
             renderDashboard() {
                 const today = new Date().toISOString().split('T')[0];
                 
-                // KPI Calculations
                 const total = this.data.length;
-                const done = this.data.filter(i => i.status === 'done').length;
+                const doneItems = this.data.filter(i => i.status === 'done');
+                const done = doneItems.length;
                 const pending = this.data.filter(i => i.status === 'pending' || i.status === 'in_progress').length;
                 
-                // Late logic: Pending/In Progress AND date < today
+                // Late: Pending and date < today
                 const late = this.data.filter(i => 
                     (i.status === 'pending' || i.status === 'in_progress') && 
                     i.date < today
                 ).length;
 
-                // Animate Numbers
-                document.getElementById('kpi-total').innerText = total;
+                // PRODUCTIVITY CALC (On Time Rate)
+                let onTimeCount = 0;
+                doneItems.forEach(item => {
+                    // If no completedDate exists (old data), assume on time or ignore. Let's assume on time for simplicity or ignore.
+                    if (item.completedDate && item.date) {
+                        if (item.completedDate <= item.date) {
+                            onTimeCount++;
+                        }
+                    } else if (!item.completedDate && item.status === 'done') {
+                        // Legacy data fix: assume on time if we don't know
+                        onTimeCount++;
+                    }
+                });
+
+                let productivityRate = 0;
+                if (done > 0) {
+                    productivityRate = Math.round((onTimeCount / done) * 100);
+                }
+
+                // Update UI
+                // Removed kpi-total update to avoid null error as element was replaced by productivity card
                 document.getElementById('kpi-done').innerText = done;
                 document.getElementById('kpi-pending').innerText = pending;
                 document.getElementById('kpi-late').innerText = late;
 
-                // Charts
+                // Productivity Card
+                document.getElementById('kpi-productivity').innerText = `${productivityRate}%`;
+                document.getElementById('kpi-productivity-desc').innerText = `Baseado em ${done} tarefas concluídas`;
+
                 this.renderCharts({ total, done, pending, late });
             },
 
             renderCharts(stats) {
-                // Platform Data
                 const igCount = this.data.filter(i => i.platform === 'instagram').length;
                 const ytCount = this.data.filter(i => i.platform === 'youtube').length;
                 const ttCount = this.data.filter(i => i.platform === 'tiktok').length;
                 const otherCount = this.data.filter(i => i.platform === 'others').length;
 
-                // Destroy old charts if exist
                 if (this.charts.status) this.charts.status.destroy();
                 if (this.charts.platform) this.charts.platform.destroy();
 
                 const isDark = document.documentElement.classList.contains('dark');
                 const textColor = isDark ? '#cbd5e1' : '#475569';
 
-                // Chart 1: Status (Doughnut)
                 const ctx1 = document.getElementById('statusChart').getContext('2d');
                 this.charts.status = new Chart(ctx1, {
                     type: 'doughnut',
@@ -508,7 +597,6 @@
                     }
                 });
 
-                // Chart 2: Platform (Bar)
                 const ctx2 = document.getElementById('platformChart').getContext('2d');
                 this.charts.platform = new Chart(ctx2, {
                     type: 'bar',
@@ -533,128 +621,50 @@
                 });
             },
 
-            /* --- CALENDAR LOGIC --- */
-            initCalendar() {
-                // Wait for DOM
-                setTimeout(() => {
-                    const calendarEl = document.getElementById('calendar');
-                    if (this.calendarInstance) {
-                        this.calendarInstance.destroy();
-                    }
-
-                    this.calendarInstance = new FullCalendar.Calendar(calendarEl, {
-                        initialView: 'dayGridMonth',
-                        locale: 'pt-br',
-                        headerToolbar: {
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: 'dayGridMonth,listWeek'
-                        },
-                        events: this.data.map(item => {
-                            let prefix = '';
-                            if(item.platform === 'instagram') prefix = 'IG';
-                            else if(item.platform === 'youtube') prefix = 'YT';
-                            else if(item.platform === 'tiktok') prefix = 'TT';
-                            else prefix = 'OUT';
-
-                            return {
-                                id: item.id,
-                                title: `[${prefix}] ${item.title}`,
-                                start: item.date,
-                                color: this.getStatusColor(item.status),
-                                extendedProps: { ...item }
-                            };
-                        }),
-                        eventClick: (info) => {
-                            this.openModal(info.event.extendedProps);
-                        },
-                        dateClick: (info) => {
-                            this.openModal(null, info.dateStr);
-                        },
-                        height: 'auto'
-                    });
-
-                    this.calendarInstance.render();
-                }, 50);
+            /* --- COMPLETION LOGIC --- */
+            
+            // Triggered when checking the box in list or selecting Done in modal
+            triggerCompletion(id) {
+                this.pendingCompletionId = id;
+                const item = this.data.find(i => i.id === id);
+                
+                // Pre-fill today's date
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('completion-date-input').value = today;
+                
+                // Open specific modal
+                document.getElementById('completion-modal').classList.remove('hidden');
             },
 
-            getStatusColor(status) {
-                if (status === 'done') return '#16a34a'; // green
-                if (status === 'late') return '#dc2626'; // red
-                return '#4F46E5'; // indigo
+            closeCompletionModal() {
+                document.getElementById('completion-modal').classList.add('hidden');
+                this.pendingCompletionId = null;
+                // If this came from the Edit Modal change, we might want to revert the select to pending? 
+                // For simplicity, we just close. The user didn't confirm.
             },
 
-            /* --- ACTIVITIES LIST LOGIC --- */
-            renderActivities() {
-                const listEl = document.getElementById('activities-list');
-                const emptyEl = document.getElementById('empty-state');
-                const filterPlatform = document.getElementById('filter-platform').value;
-                const filterStatus = document.getElementById('filter-status').value;
-
-                listEl.innerHTML = '';
-
-                // Filtering
-                let filtered = this.data.sort((a, b) => new Date(a.date) - new Date(b.date));
-                if (filterPlatform !== 'all') filtered = filtered.filter(i => i.platform === filterPlatform);
-                if (filterStatus !== 'all') filtered = filtered.filter(i => i.status === filterStatus);
-
-                if (filtered.length === 0) {
-                    emptyEl.classList.remove('hidden');
+            confirmCompletion() {
+                const date = document.getElementById('completion-date-input').value;
+                if (!date) {
+                    alert('Por favor, informe a data.');
                     return;
                 }
-                emptyEl.classList.add('hidden');
-
-                // Render Rows
-                filtered.forEach(item => {
-                    const isLate = item.status !== 'done' && new Date(item.date) < new Date(new Date().setHours(0,0,0,0));
-                    
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border-b border-gray-100 dark:border-gray-700 last:border-0';
-                    
-                    // Status Badge
-                    let statusBadge = '';
-                    if (item.status === 'done') statusBadge = '<span class="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Concluído</span>';
-                    else if (isLate) statusBadge = '<span class="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Atrasado</span>';
-                    else statusBadge = '<span class="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Pendente</span>';
-
-                    // Icon
-                    let icon = '';
-                    if(item.platform === 'instagram') icon = '<i class="fa-brands fa-instagram text-pink-600 text-lg"></i>';
-                    else if(item.platform === 'youtube') icon = '<i class="fa-brands fa-youtube text-red-600 text-lg"></i>';
-                    else if(item.platform === 'tiktok') icon = '<i class="fa-brands fa-tiktok text-gray-800 dark:text-gray-200 text-lg"></i>';
-                    else icon = '<i class="fa-solid fa-bullhorn text-amber-500 text-lg"></i>';
-
-                    // Extra info (Cost)
-                    let extraInfo = '';
-                    if(item.platform === 'others' && item.hasCost) {
-                        extraInfo = `<div class="text-xs text-gray-400 mt-1">Custo: R$ ${item.costValue || '0,00'}</div>`;
-                    }
-
-                    // Format Date
-                    const dateFormatted = new Date(item.date).toLocaleDateString('pt-BR');
-
-                    row.innerHTML = `
-                        <td class="p-4 whitespace-nowrap">${statusBadge}</td>
-                        <td class="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${dateFormatted}</td>
-                        <td class="p-4 whitespace-nowrap text-sm font-medium flex items-center gap-2">${icon} <span class="capitalize text-gray-700 dark:text-gray-300">${item.type}</span></td>
-                        <td class="p-4 text-sm text-gray-900 dark:text-gray-100 font-medium">
-                            ${item.title}
-                            ${extraInfo}
-                        </td>
-                        <td class="p-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button onclick="app.toggleStatus('${item.id}')" class="text-indigo-600 hover:text-indigo-900 dark:hover:text-indigo-400 mr-3" title="Marcar como Concluído/Pendente">
-                                <i class="fa-solid fa-check-circle text-lg"></i>
-                            </button>
-                            <button onclick="app.editById('${item.id}')" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                        </td>
-                    `;
-                    listEl.appendChild(row);
-                });
+                
+                const id = this.pendingCompletionId;
+                const index = this.data.findIndex(i => i.id === id);
+                
+                if (index !== -1) {
+                    this.data[index].status = 'done';
+                    this.data[index].completedDate = date;
+                    this.saveData();
+                    this.celebrate();
+                }
+                
+                this.closeCompletionModal();
+                this.closeModal(); // Close main modal if open
             },
 
-            /* --- MODAL & CRUD --- */
+            /* --- MAIN MODAL & CRUD --- */
             toggleCostFields() {
                 const platform = document.getElementById('post-platform').value;
                 const container = document.getElementById('cost-container');
@@ -662,7 +672,6 @@
                     container.classList.remove('hidden');
                 } else {
                     container.classList.add('hidden');
-                    // Reset fields if hiding
                     document.getElementById('post-has-cost').checked = false;
                     document.getElementById('cost-value-container').classList.add('hidden');
                     document.getElementById('post-cost-value').value = '';
@@ -697,9 +706,9 @@
                     document.getElementById('post-date').value = existingItem.date;
                     document.getElementById('post-desc').value = existingItem.description;
                     document.getElementById('post-status').value = existingItem.status;
+                    document.getElementById('post-completed-date').value = existingItem.completedDate || '';
 
-                    // Handle Cost Fields
-                    this.toggleCostFields(); // Show/Hide container based on platform
+                    this.toggleCostFields();
                     if(existingItem.platform === 'others') {
                         document.getElementById('post-has-cost').checked = existingItem.hasCost || false;
                         this.toggleCostInput();
@@ -712,7 +721,8 @@
                     document.getElementById('post-form').reset();
                     document.getElementById('post-id').value = '';
                     document.getElementById('post-status').value = 'pending';
-                    this.toggleCostFields(); // Ensure hidden
+                    document.getElementById('post-completed-date').value = '';
+                    this.toggleCostFields();
                     if(defaultDate) document.getElementById('post-date').value = defaultDate;
                 }
             },
@@ -724,7 +734,9 @@
             savePost() {
                 const id = document.getElementById('post-id').value;
                 const status = document.getElementById('post-status').value;
-                
+                const completedDateStored = document.getElementById('post-completed-date').value;
+
+                // Create temp object
                 const newItem = {
                     id: id || crypto.randomUUID(),
                     title: document.getElementById('post-title').value,
@@ -733,9 +745,9 @@
                     date: document.getElementById('post-date').value,
                     description: document.getElementById('post-desc').value,
                     status: status,
-                    // New Fields
                     hasCost: document.getElementById('post-has-cost').checked,
-                    costValue: document.getElementById('post-cost-value').value
+                    costValue: document.getElementById('post-cost-value').value,
+                    completedDate: completedDateStored // Persist existing date if any
                 };
 
                 if (!newItem.title || !newItem.date) {
@@ -743,26 +755,39 @@
                     return;
                 }
 
+                // Logic: If user sets status to DONE inside the modal, we need to ask for date IF it doesn't have one
+                if (status === 'done' && !completedDateStored) {
+                    // Save partially to data array so confirmCompletion can find it?
+                    // Better approach: Save to array as pending first, then trigger completion modal
+                    if(id) {
+                        const index = this.data.findIndex(i => i.id === id);
+                        this.data[index] = newItem;
+                        this.data[index].status = 'pending'; // revert to pending until confirmed
+                    } else {
+                        newItem.status = 'pending';
+                        this.data.push(newItem);
+                    }
+                    this.saveData(); // Save the edit
+                    this.triggerCompletion(newItem.id); // Ask for date
+                    return; // Stop here, completion modal handles the rest
+                }
+
+                // Normal Save
                 if (id) {
                     const index = this.data.findIndex(i => i.id === id);
-                    const oldStatus = this.data[index].status;
                     this.data[index] = newItem;
                     
-                    // Celebration if moving to done
-                    if(status === 'done' && oldStatus !== 'done') {
-                        this.celebrate();
-                    } else {
-                        this.showToast('Postagem atualizada!');
+                    // If moving OUT of done, clear date
+                    if (status !== 'done') {
+                        this.data[index].completedDate = null;
                     }
-
                 } else {
                     this.data.push(newItem);
-                    if(status === 'done') this.celebrate();
-                    else this.showToast('Nova postagem criada!');
                 }
 
                 this.saveData();
                 this.closeModal();
+                this.showToast('Salvo com sucesso!');
             },
 
             deletePost() {
@@ -783,50 +808,31 @@
             toggleStatus(id) {
                 const item = this.data.find(i => i.id === id);
                 if(item) {
-                    const oldStatus = item.status;
-                    item.status = item.status === 'done' ? 'pending' : 'done';
-                    this.saveData();
-                    
-                    if(item.status === 'done' && oldStatus !== 'done') {
-                        this.celebrate();
+                    if (item.status === 'done') {
+                        // Un-complete
+                        item.status = 'pending';
+                        item.completedDate = null;
+                        this.saveData();
+                        this.showToast('Status revertido para pendente.');
                     } else {
-                        this.showToast('Status atualizado.');
+                        // Complete -> Ask for Date
+                        this.triggerCompletion(id);
                     }
                 }
             },
 
             celebrate() {
-                // 1. Confetti
                 const duration = 2000;
                 const end = Date.now() + duration;
-
                 (function frame() {
-                    confetti({
-                        particleCount: 3,
-                        angle: 60,
-                        spread: 55,
-                        origin: { x: 0 },
-                        colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24']
-                    });
-                    confetti({
-                        particleCount: 3,
-                        angle: 120,
-                        spread: 55,
-                        origin: { x: 1 },
-                        colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24']
-                    });
-
-                    if (Date.now() < end) {
-                        requestAnimationFrame(frame);
-                    }
+                    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24'] });
+                    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24'] });
+                    if (Date.now() < end) requestAnimationFrame(frame);
                 }());
-
-                // 2. Motivational Toast
                 const randomQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
                 this.showToast('Tarefa Concluída!', randomQuote, true);
             },
 
-            /* --- UTILS --- */
             toggleTheme() {
                 document.documentElement.classList.toggle('dark');
                 if(document.documentElement.classList.contains('dark')) {
@@ -834,20 +840,16 @@
                 } else {
                     localStorage.setItem('theme', 'light');
                 }
-                this.renderDashboard(); // Re-render charts for colors
+                this.renderDashboard();
             },
 
             exportCSV() {
-                const headers = ["ID", "Título", "Canal", "Tipo", "Data", "Status", "Descrição", "Tem Custo?", "Valor"];
+                const headers = ["ID", "Título", "Canal", "Tipo", "Data Planejada", "Data Conclusão", "Status", "Descrição", "Tem Custo?", "Valor"];
                 const rows = this.data.map(i => [
-                    i.id, i.title, i.platform, i.type, i.date, i.status, i.description, 
+                    i.id, i.title, i.platform, i.type, i.date, i.completedDate || "-", i.status, i.description, 
                     i.hasCost ? "Sim" : "Não", i.costValue || "0"
                 ]);
-                
-                let csvContent = "data:text/csv;charset=utf-8," + 
-                    headers.join(",") + "\n" + 
-                    rows.map(e => e.join(",")).join("\n");
-
+                let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map(e => e.join(",")).join("\n");
                 const encodedUri = encodeURI(csvContent);
                 const link = document.createElement("a");
                 link.setAttribute("href", encodedUri);
@@ -859,35 +861,18 @@
             showToast(msg, subMsg = '', isSuccess = false) {
                 const toast = document.getElementById('toast');
                 document.getElementById('toast-msg').innerText = msg;
-                
                 const subEl = document.getElementById('toast-sub');
                 const iconEl = document.getElementById('toast-icon');
 
-                if(subMsg) {
-                    subEl.innerText = subMsg;
-                    subEl.classList.remove('hidden');
-                } else {
-                    subEl.classList.add('hidden');
-                }
-
-                if(isSuccess) {
-                    iconEl.classList.remove('hidden');
-                } else {
-                    iconEl.classList.add('hidden');
-                }
+                if(subMsg) { subEl.innerText = subMsg; subEl.classList.remove('hidden'); } else { subEl.classList.add('hidden'); }
+                if(isSuccess) { iconEl.classList.remove('hidden'); } else { iconEl.classList.add('hidden'); }
 
                 toast.classList.remove('opacity-0', 'translate-y-20');
-                
-                // Longer duration if there is a submessage
                 const duration = subMsg ? 5000 : 3000;
-
-                setTimeout(() => {
-                    toast.classList.add('opacity-0', 'translate-y-20');
-                }, duration);
+                setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-20'); }, duration);
             }
         };
 
-        // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
             app.init();
         });
