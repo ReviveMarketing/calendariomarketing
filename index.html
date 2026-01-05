@@ -49,7 +49,15 @@
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Configuration using Global Variables
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // Ensure config is valid or provide fallback to prevent crash
+        let firebaseConfig;
+        try {
+            firebaseConfig = JSON.parse(__firebase_config);
+        } catch (e) {
+            console.error("Firebase config error:", e);
+            firebaseConfig = {}; // Fallback to prevent immediate crash, though auth will fail
+        }
+        
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         const firebaseApp = initializeApp(firebaseConfig);
@@ -72,6 +80,8 @@
                 }
             } catch (error) {
                 console.error("Auth Error:", error);
+                // Alert user if auth fails criticaly
+                // alert("Erro na autenticação. Recarregue a página.");
             }
         };
         initAuth();
@@ -265,7 +275,7 @@
                             <option value="instagram">Instagram</option>
                             <option value="youtube">YouTube</option>
                             <option value="tiktok">TikTok</option>
-                            <option value="others">Outros (Eventos/etc)</option>
+                            <option value="others">Outros (Eventos, etc)</option>
                         </select>
                         <select id="filter-status" onchange="app.renderActivities()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="all">Todos os Status</option>
@@ -464,8 +474,8 @@
 
                 // Setup fallback if auth takes too long
                 setTimeout(() => {
-                   if(!window.auth.currentUser) this.setupRealtimeListener();
-                }, 3000);
+                   if(window.auth && !window.auth.currentUser) this.setupRealtimeListener();
+                }, 4000); // Increased timeout slightly
 
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -483,7 +493,10 @@
             },
 
             setupRealtimeListener() {
-                if (!window.db || !window.firebaseOps) return;
+                if (!window.db || !window.firebaseOps) {
+                    console.error("Firebase SDK not loaded.");
+                    return;
+                }
                 
                 const { collection, onSnapshot, query } = window.firebaseOps;
                 const postsRef = collection(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts');
@@ -508,7 +521,10 @@
                     this.refreshCurrentView();
                 }, (error) => {
                     console.error("Error fetching data: ", error);
-                    document.getElementById('loading-state').innerText = "Erro ao carregar dados. Tente recarregar.";
+                    // Handle specific auth errors silently or show message
+                    if(error.code !== 'permission-denied') {
+                        document.getElementById('loading-state').innerHTML = `<span class="text-red-500">Erro ao carregar. Recarregue a página.</span>`;
+                    }
                 });
             },
 
@@ -519,8 +535,7 @@
                      // Calendar needs a full re-render sometimes if instance doesn't exist
                      if(this.calendarInstance) {
                          this.calendarInstance.refetchEvents();
-                         this.calendarInstance.destroy(); // Hard refresh to ensure data sync
-                         this.initCalendar();
+                         // Sometimes hard refresh is needed if data structure changed wildly
                      } else {
                          this.initCalendar();
                      }
@@ -823,56 +838,74 @@
                 document.getElementById('post-modal').classList.add('hidden');
             },
 
+            // Safe ID Generator to replace crypto.randomUUID for better compatibility
+            generateId() {
+                if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                    try {
+                        return crypto.randomUUID();
+                    } catch(e) {}
+                }
+                return Date.now().toString(36) + Math.random().toString(36).substring(2);
+            },
+
             // --- FIRESTORE ACTIONS ---
 
             async savePost() {
-                const id = document.getElementById('post-id').value || crypto.randomUUID();
-                const status = document.getElementById('post-status').value;
-                const completedDateStored = document.getElementById('post-completed-date').value;
-
-                const newItem = {
-                    id: id,
-                    title: document.getElementById('post-title').value,
-                    platform: document.getElementById('post-platform').value,
-                    type: document.getElementById('post-type').value,
-                    date: document.getElementById('post-date').value,
-                    description: document.getElementById('post-desc').value,
-                    status: status,
-                    hasCost: document.getElementById('post-has-cost').checked,
-                    costValue: document.getElementById('post-cost-value').value,
-                    completedDate: completedDateStored
-                };
-
-                if (!newItem.title || !newItem.date) {
-                    alert('Preencha pelo menos o título e a data.');
+                if (!window.firebaseOps) {
+                    alert("A conexão com o banco de dados ainda não foi estabelecida. Aguarde um momento.");
                     return;
                 }
 
-                // If Done but no date, hold and ask for date
-                if (status === 'done' && !completedDateStored) {
-                    this.pendingNewItem = newItem; // Store temporary
-                    this.triggerCompletion(id);
-                    return; 
-                }
-
-                if (status !== 'done') {
-                    newItem.completedDate = null;
-                }
-
-                // Save to Firestore
                 try {
-                   await window.firebaseOps.setDoc(
+                    const id = document.getElementById('post-id').value || this.generateId();
+                    const status = document.getElementById('post-status').value;
+                    const completedDateStored = document.getElementById('post-completed-date').value;
+
+                    const newItem = {
+                        id: id,
+                        title: document.getElementById('post-title').value,
+                        platform: document.getElementById('post-platform').value,
+                        type: document.getElementById('post-type').value,
+                        date: document.getElementById('post-date').value,
+                        description: document.getElementById('post-desc').value,
+                        status: status,
+                        hasCost: document.getElementById('post-has-cost').checked,
+                        costValue: document.getElementById('post-cost-value').value,
+                        completedDate: completedDateStored
+                    };
+
+                    if (!newItem.title || !newItem.date) {
+                        alert('Preencha pelo menos o título e a data.');
+                        return;
+                    }
+
+                    // If Done but no date, hold and ask for date
+                    if (status === 'done' && !completedDateStored) {
+                        this.pendingNewItem = newItem; // Store temporary
+                        this.triggerCompletion(id);
+                        return; 
+                    }
+
+                    if (status !== 'done') {
+                        newItem.completedDate = null;
+                    }
+
+                    // Save to Firestore
+                    await window.firebaseOps.setDoc(
                        window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id), 
                        newItem
-                   );
-                   this.closeModal();
-                   this.showToast('Salvo na nuvem com sucesso!');
+                    );
+                    this.closeModal();
+                    this.showToast('Salvo na nuvem com sucesso!');
+                    
                 } catch (e) {
-                   alert('Erro ao salvar: ' + e.message);
+                   console.error(e);
+                   alert('Erro ao salvar. Verifique sua conexão. ' + e.message);
                 }
             },
 
             async deletePost() {
+                if (!window.firebaseOps) return;
                 const id = document.getElementById('post-id').value;
                 if(confirm('Tem certeza que deseja excluir este item da nuvem?')) {
                     try {
@@ -893,15 +926,20 @@
             },
 
             async toggleStatus(id) {
+                if (!window.firebaseOps) return;
                 const item = this.data.find(i => i.id === id);
                 if(item) {
                     if (item.status === 'done') {
                         // Revert
-                        await window.firebaseOps.updateDoc(
-                             window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id),
-                             { status: 'pending', completedDate: null }
-                        );
-                        this.showToast('Status revertido para pendente.');
+                        try {
+                            await window.firebaseOps.updateDoc(
+                                 window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', id),
+                                 { status: 'pending', completedDate: null }
+                            );
+                            this.showToast('Status revertido para pendente.');
+                        } catch (e) {
+                            alert("Erro ao atualizar status: " + e.message);
+                        }
                     } else {
                         // Ask for date
                         this.triggerCompletion(id);
@@ -923,42 +961,39 @@
             },
 
             async confirmCompletion() {
+                if (!window.firebaseOps) return;
+
                 const date = document.getElementById('completion-date-input').value;
                 if (!date) {
                     alert('Por favor, informe a data.');
                     return;
                 }
                 
-                // If it was a NEW/EDIT item pending save
-                if (this.pendingNewItem) {
-                    this.pendingNewItem.status = 'done';
-                    this.pendingNewItem.completedDate = date;
-                    
-                    try {
+                try {
+                    // If it was a NEW/EDIT item pending save
+                    if (this.pendingNewItem) {
+                        this.pendingNewItem.status = 'done';
+                        this.pendingNewItem.completedDate = date;
+                        
                         await window.firebaseOps.setDoc(
                            window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingNewItem.id), 
                            this.pendingNewItem
                         );
                         this.celebrate();
                         this.closeModal();
-                    } catch(e) {
-                        alert('Erro ao salvar: ' + e.message);
-                    }
-                } 
-                // If it was a list toggle action
-                else if (this.pendingCompletionId) {
-                     try {
+                    } 
+                    // If it was a list toggle action
+                    else if (this.pendingCompletionId) {
                         await window.firebaseOps.updateDoc(
                              window.firebaseOps.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'marketing_posts', this.pendingCompletionId),
                              { status: 'done', completedDate: date }
                         );
                         this.celebrate();
-                    } catch(e) {
-                        alert('Erro ao atualizar: ' + e.message);
                     }
+                    this.closeCompletionModal();
+                } catch(e) {
+                    alert('Erro ao salvar conclusão: ' + e.message);
                 }
-                
-                this.closeCompletionModal();
             },
 
             celebrate() {
@@ -1012,6 +1047,9 @@
                 setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-20'); }, duration);
             }
         };
+        
+        // Ensure app is available globally for onclick events
+        window.app = app;
 
         document.addEventListener('DOMContentLoaded', () => {
             app.init();
