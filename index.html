@@ -59,43 +59,41 @@
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Inicializa apenas se houver config válida
-        if (Object.keys(firebaseConfig).length > 0) {
-            try {
-                const firebaseApp = initializeApp(firebaseConfig);
-                const auth = getAuth(firebaseApp);
-                const db = getFirestore(firebaseApp);
+        // Expor função de conexão manual globalmente
+        window.manualFirebaseConnect = async () => {
+             if (Object.keys(firebaseConfig).length > 0) {
+                try {
+                    const firebaseApp = initializeApp(firebaseConfig);
+                    const auth = getAuth(firebaseApp);
+                    const db = getFirestore(firebaseApp);
 
-                // Expor para o escopo global
-                window.db = db;
-                window.auth = auth;
-                window.appId = appId;
-                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
-                
-                // Autenticação
-                const initAuth = async () => {
-                    try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
-                        console.log("Autenticado com sucesso");
-                        window.isFirebaseReady = true; // Sinaliza sucesso
-                    } catch (error) {
-                        console.error("Erro de Autenticação:", error);
-                        window.firebaseInitializationError = true;
+                    // Expor para o escopo global
+                    window.db = db;
+                    window.auth = auth;
+                    window.appId = appId;
+                    window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+                    
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
                     }
-                };
-                initAuth();
-            } catch (err) {
-                console.error("Erro ao inicializar app:", err);
-                window.firebaseInitializationError = true;
+                    console.log("Re-autenticado com sucesso");
+                    window.isFirebaseReady = true;
+                    return true;
+                } catch (error) {
+                    console.error("Erro de Autenticação Manual:", error);
+                    return false;
+                }
+            } else {
+                console.warn("Sem configuração para conectar.");
+                return false;
             }
-        } else {
-            console.warn("Configuração do Firebase vazia.");
-            window.firebaseInitializationError = true;
-        }
+        };
+
+        // Inicializa automaticamente
+        window.manualFirebaseConnect();
+
     </script>
 
     <style>
@@ -143,9 +141,11 @@
 
             <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                <div class="text-xs text-center text-gray-400 mb-2 flex items-center justify-center gap-2 cursor-pointer hover:text-indigo-500 transition" onclick="window.location.reload()" title="Clique para recarregar e tentar conectar">
+                <!-- Status de Conexão com Botão de Retry -->
+                <button id="connection-btn" onclick="app.retryConnection()" class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition" title="Clique para tentar reconectar">
                     <span id="connection-status" class="flex items-center gap-1">Conectando...</span>
-                </div>
+                </button>
+                
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                     <i class="fa-solid fa-moon dark:hidden mr-2"></i>
                     <i class="fa-solid fa-sun hidden dark:inline mr-2 text-yellow-400"></i>
@@ -500,6 +500,7 @@
                         clearInterval(checkFirebase);
                         this.offlineMode = false;
                         document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
+                        document.getElementById('connection-btn').classList.remove('animate-pulse');
                         this.setupRealtimeListener();
                     } else if (window.firebaseInitializationError || attempts >= maxAttempts) {
                         clearInterval(checkFirebase);
@@ -528,7 +529,8 @@
             enableOfflineMode() {
                 this.offlineMode = true;
                 console.log("Ativando modo offline...");
-                document.getElementById('connection-status').innerHTML = '<span class="text-gray-500 font-bold flex items-center gap-1" title="Clique para tentar reconectar"><i class="fa-solid fa-wifi"></i> Modo Offline (Reconectar)</span>';
+                document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> Offline (Reconectar)</span>';
+                document.getElementById('connection-btn').classList.add('animate-pulse');
                 document.getElementById('loading-state').classList.add('hidden');
                 
                 // Load Local Data
@@ -546,7 +548,28 @@
                 }
                 
                 this.refreshCurrentView();
-                this.showToast('Modo Offline Ativado', 'Você pode criar e salvar posts localmente.', false);
+                this.showToast('Modo Offline Ativado', 'Salvo apenas neste dispositivo.', false);
+            },
+            
+            async retryConnection() {
+                document.getElementById('connection-status').innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-circle-notch fa-spin"></i> Tentando...</span>';
+                
+                if (window.manualFirebaseConnect) {
+                    const success = await window.manualFirebaseConnect();
+                    if (success) {
+                        this.offlineMode = false;
+                        document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
+                        document.getElementById('connection-btn').classList.remove('animate-pulse');
+                        this.setupRealtimeListener();
+                        this.showToast('Conexão Restaurada!', 'Sincronizando dados...', true);
+                    } else {
+                        // Keep offline mode but visually indicate failure
+                        document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> Falha (Tentar de novo)</span>';
+                        this.showToast('Erro de Conexão', 'Não foi possível conectar à nuvem.', false);
+                    }
+                } else {
+                    alert("Função de conexão não disponível.");
+                }
             },
 
             saveLocal() {
