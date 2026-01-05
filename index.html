@@ -723,10 +723,14 @@
                             else if(item.platform === 'tiktok') prefix = 'TT';
                             else prefix = 'OUT';
 
+                            // Fix Timezone for Calendar
+                            // Append T00:00:00 to prevent backshift if using new Date()
+                            // But FC accepts strings directly if they are YYYY-MM-DD
+                            
                             return {
                                 id: item.id,
                                 title: `[${prefix}] ${item.title}`,
-                                start: item.date,
+                                start: item.date, // Pass string directly 'YYYY-MM-DD'
                                 color: this.getStatusColor(item.status),
                                 extendedProps: { ...item }
                             };
@@ -787,8 +791,17 @@
                         extraInfo = `<div class="text-xs text-gray-400 mt-1">Custo: R$ ${item.costValue || '0,00'}</div>`;
                     }
 
-                    const dateFormatted = new Date(item.date).toLocaleDateString('pt-BR');
-                    const completedFormatted = item.completedDate ? new Date(item.completedDate).toLocaleDateString('pt-BR') : '-';
+                    // FIX TIMEZONE RENDERING
+                    // Don't use new Date(string).toLocaleDateString() directly on YYYY-MM-DD
+                    const formatDateStr = (dateStr) => {
+                        if (!dateStr) return '-';
+                        const parts = dateStr.split('-');
+                        if (parts.length !== 3) return dateStr;
+                        return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+                    };
+
+                    const dateFormatted = formatDateStr(item.date);
+                    const completedFormatted = formatDateStr(item.completedDate);
 
                     const row = document.createElement('tr');
                     row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border-b border-gray-100 dark:border-gray-700 last:border-0';
@@ -1070,7 +1083,9 @@
 
             triggerCompletion(id) {
                 this.pendingCompletionId = id;
-                const today = new Date().toISOString().split('T')[0];
+                // FIX TIMEZONE DEFAULT DATE
+                const now = new Date();
+                const today = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
                 document.getElementById('completion-date-input').value = today;
                 document.getElementById('completion-modal').classList.remove('hidden');
             },
