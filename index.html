@@ -183,18 +183,18 @@
 
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <!-- Card 1: Produtividade -->
+                        <!-- Card 1: Taxa de Conclusão (ALTERADO) -->
                         <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-md border border-indigo-500 flex flex-col justify-between relative overflow-hidden">
                             <div class="z-10">
-                                <p class="text-indigo-100 text-sm font-medium mb-1">Pontualidade</p>
+                                <p class="text-indigo-100 text-sm font-medium mb-1">Taxa de Conclusão</p>
                                 <div class="flex items-baseline">
                                     <h3 class="text-4xl font-bold" id="kpi-productivity">0%</h3>
-                                    <span class="ml-2 text-sm text-indigo-200">no prazo</span>
+                                    <span class="ml-2 text-sm text-indigo-200">concluído</span>
                                 </div>
                                 <p class="text-xs text-indigo-200 mt-2" id="kpi-productivity-desc">Baseado em 0 tarefas concluídas</p>
                             </div>
                             <div class="absolute right-[-10px] bottom-[-10px] opacity-20 text-6xl">
-                                <i class="fa-solid fa-stopwatch"></i>
+                                <i class="fa-solid fa-chart-line"></i>
                             </div>
                         </div>
 
@@ -630,8 +630,8 @@
                 });
 
                 let productivityRate = 0;
-                if (done > 0) {
-                    productivityRate = Math.round((onTimeCount / done) * 100);
+                if (total > 0) {
+                    productivityRate = Math.round((done / total) * 100);
                 }
 
                 document.getElementById('kpi-done').innerText = done;
@@ -642,7 +642,7 @@
                 if(prodEl) prodEl.innerText = `${productivityRate}%`;
                 
                 const prodDesc = document.getElementById('kpi-productivity-desc');
-                if(prodDesc) prodDesc.innerText = `Baseado em ${done} tarefas concluídas`;
+                if(prodDesc) prodDesc.innerText = `${done} de ${total} tarefas totais`;
 
                 this.renderCharts({ total, done, pending, late });
             },
@@ -1183,4 +1183,3 @@
     </script>
 </body>
 </html>
-
