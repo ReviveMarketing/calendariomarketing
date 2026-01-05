@@ -143,7 +143,7 @@
 
             <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                <div class="text-xs text-center text-gray-400 mb-2 flex items-center justify-center gap-2">
+                <div class="text-xs text-center text-gray-400 mb-2 flex items-center justify-center gap-2 cursor-pointer hover:text-indigo-500 transition" onclick="window.location.reload()" title="Clique para recarregar e tentar conectar">
                     <span id="connection-status" class="flex items-center gap-1">Conectando...</span>
                 </div>
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
@@ -183,7 +183,7 @@
 
                     <!-- KPI Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                        <!-- Card 1: Taxa de Conclusão (ALTERADO) -->
+                        <!-- Card 1: Taxa de Conclusão -->
                         <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-md border border-indigo-500 flex flex-col justify-between relative overflow-hidden">
                             <div class="z-10">
                                 <p class="text-indigo-100 text-sm font-medium mb-1">Taxa de Conclusão</p>
@@ -336,7 +336,7 @@
             <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                 <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-200 dark:border-gray-700">
                     
-                    <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                    <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
                         <div class="sm:flex sm:items-start w-full">
                             <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
                                 <h3 class="text-xl font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4" id="modal-title">Nova Postagem</h3>
@@ -478,9 +478,9 @@
             ],
             
             init() {
-                // Monitoramento de conexão com timeout de 15s (reduzido para não frustrar)
+                // Monitoramento de conexão com timeout
                 let attempts = 0;
-                const maxAttempts = 15; 
+                const maxAttempts = 10; // Reduzi o tempo de espera para 10s
 
                 const checkFirebase = setInterval(() => {
                     attempts++;
@@ -517,7 +517,7 @@
             enableOfflineMode() {
                 this.offlineMode = true;
                 console.log("Ativando modo offline...");
-                document.getElementById('connection-status').innerHTML = '<span class="text-gray-500 font-bold flex items-center gap-1" title="Dados salvos apenas neste dispositivo"><i class="fa-solid fa-wifi"></i> Modo Offline</span>';
+                document.getElementById('connection-status').innerHTML = '<span class="text-gray-500 font-bold flex items-center gap-1" title="Clique para tentar reconectar"><i class="fa-solid fa-wifi"></i> Modo Offline (Reconectar)</span>';
                 document.getElementById('loading-state').classList.add('hidden');
                 
                 // Load Local Data
@@ -535,7 +535,7 @@
                 }
                 
                 this.refreshCurrentView();
-                this.showToast('Modo Offline Ativado', 'Seus dados serão salvos localmente.', false);
+                this.showToast('Modo Offline Ativado', 'Você pode criar e salvar posts localmente.', false);
             },
 
             saveLocal() {
@@ -843,12 +843,23 @@
                 const title = document.getElementById('modal-title');
                 const btnDelete = document.getElementById('btn-delete');
                 const btnSave = document.getElementById('btn-save-post');
+                const btnText = document.getElementById('save-text');
+                const btnIcon = document.getElementById('save-icon');
                 
                 modal.classList.remove('hidden');
                 // Reset save button state
                 btnSave.disabled = false;
-                document.getElementById('save-text').innerText = 'Salvar';
-                document.getElementById('save-icon').classList.add('hidden');
+
+                // Dynamic Button Text
+                if (this.offlineMode) {
+                    btnText.innerText = 'Salvar (No Dispositivo)';
+                    btnIcon.className = 'fa-solid fa-floppy-disk mr-2'; // Disk icon for offline
+                } else {
+                    btnText.innerText = 'Salvar (Na Nuvem)';
+                    btnIcon.className = 'fa-solid fa-cloud-arrow-up mr-2'; // Cloud icon
+                }
+                btnIcon.classList.remove('hidden');
+                btnIcon.classList.remove('fa-spin');
 
                 if (existingItem) {
                     title.innerText = 'Editar Postagem';
@@ -906,7 +917,7 @@
                 btnSave.disabled = true;
                 saveText.innerText = 'Salvando...';
                 saveIcon.classList.remove('hidden');
-                saveIcon.classList.add('fa-spin');
+                saveIcon.className = 'fa-solid fa-circle-notch fa-spin mr-2'; // Loader
 
                 // Prepare Data
                 const id = document.getElementById('post-id').value || this.generateId();
@@ -959,9 +970,8 @@
                     // MODO CLOUD
                     if (!window.firebaseOps || !window.isFirebaseReady) {
                         // Fallback inesperado
-                        alert("Erro de conexão. Ativando modo offline...");
                         this.enableOfflineMode();
-                        this.savePost(); // Tenta salvar de novo no modo offline
+                        this.savePost(); // Retry locally
                         return;
                     }
                     try {
@@ -988,10 +998,15 @@
                 const btnSave = document.getElementById('btn-save-post');
                 const saveText = document.getElementById('save-text');
                 const saveIcon = document.getElementById('save-icon');
+                
                 btnSave.disabled = false;
-                saveText.innerText = 'Salvar';
-                saveIcon.classList.add('hidden');
-                saveIcon.classList.remove('fa-spin');
+                if (this.offlineMode) {
+                    saveText.innerText = 'Salvar (No Dispositivo)';
+                    saveIcon.className = 'fa-solid fa-floppy-disk mr-2';
+                } else {
+                    saveText.innerText = 'Salvar (Na Nuvem)';
+                    saveIcon.className = 'fa-solid fa-cloud-arrow-up mr-2';
+                }
             },
 
             async deletePost() {
