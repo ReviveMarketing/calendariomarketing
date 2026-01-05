@@ -54,44 +54,47 @@
             firebaseConfig = JSON.parse(__firebase_config);
         } catch (e) {
             console.error("Erro na config do Firebase:", e);
-            // Fallback silencioso para não quebrar a UI inteira imediatamente
             firebaseConfig = {}; 
         }
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Inicializa apenas se houver config, senão loga erro
-        let firebaseApp, auth, db;
-        
+        // Inicializa apenas se houver config, senão sinaliza erro
         if (Object.keys(firebaseConfig).length > 0) {
-            firebaseApp = initializeApp(firebaseConfig);
-            auth = getAuth(firebaseApp);
-            db = getFirestore(firebaseApp);
+            try {
+                const firebaseApp = initializeApp(firebaseConfig);
+                const auth = getAuth(firebaseApp);
+                const db = getFirestore(firebaseApp);
 
-            // Expor para o escopo global
-            window.db = db;
-            window.auth = auth;
-            window.appId = appId;
-            window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
-            
-            // Autenticação
-            const initAuth = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
+                // Expor para o escopo global
+                window.db = db;
+                window.auth = auth;
+                window.appId = appId;
+                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+                
+                // Autenticação
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                        console.log("Autenticado com sucesso");
+                        window.isFirebaseReady = true; // Sinaliza sucesso
+                    } catch (error) {
+                        console.error("Erro de Autenticação:", error);
+                        window.firebaseInitializationError = true; // Sinaliza erro de auth
                     }
-                    console.log("Autenticado com sucesso");
-                    // Sinaliza que o Firebase está pronto
-                    window.isFirebaseReady = true;
-                } catch (error) {
-                    console.error("Erro de Autenticação:", error);
-                }
-            };
-            initAuth();
+                };
+                initAuth();
+            } catch (err) {
+                console.error("Erro ao inicializar app:", err);
+                window.firebaseInitializationError = true; // Sinaliza erro de init
+            }
         } else {
             console.error("Configuração do Firebase vazia ou inválida.");
+            window.firebaseInitializationError = true; // Sinaliza erro de config
         }
     </script>
 
@@ -141,7 +144,7 @@
             <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                 <div class="text-xs text-center text-gray-400 mb-2 flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-cloud text-indigo-500"></i> <span id="connection-status">Conectando...</span>
+                    <span id="connection-status" class="flex items-center gap-1">Conectando...</span>
                 </div>
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
                     <i class="fa-solid fa-moon dark:hidden mr-2"></i>
@@ -474,21 +477,30 @@
             ],
             
             init() {
-                // Tenta conectar, mas não trava se falhar de imediato
+                // Monitoramento de conexão com timeout de 30s
+                let attempts = 0;
+                const maxAttempts = 30; // 30 segundos
+
                 const checkFirebase = setInterval(() => {
+                    attempts++;
+                    
                     if (window.isFirebaseReady) {
                         clearInterval(checkFirebase);
-                        document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold">Conectado</span>';
+                        document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
                         this.setupRealtimeListener();
+                    } else if (window.firebaseInitializationError) {
+                        clearInterval(checkFirebase);
+                        document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1" title="Erro de config"><i class="fa-solid fa-circle-exclamation"></i> Erro</span>';
+                        alert("Não foi possível conectar ao servidor de dados (Cloud). Tente recarregar a página.");
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkFirebase);
+                        document.getElementById('connection-status').innerHTML = '<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> Timeout</span>';
+                        console.log("Tempo limite excedido aguardando conexão.");
                     }
                 }, 1000);
                 
-                // Timeout para aviso visual se demorar
-                setTimeout(() => {
-                    if (!window.isFirebaseReady) {
-                        document.getElementById('connection-status').innerHTML = '<span class="text-yellow-500">Tentando conectar...</span>';
-                    }
-                }, 5000);
+                // Feedback visual imediato
+                document.getElementById('connection-status').innerHTML = '<span class="text-yellow-600 animate-pulse flex items-center gap-1"><i class="fa-solid fa-circle-notch fa-spin"></i> Conectando...</span>';
 
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
