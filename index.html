@@ -50,69 +50,89 @@
 
         // Variáveis de Diagnóstico Global
         window.diag = {
-            configLoaded: false,
-            authAttempted: false,
+            configSource: 'none', // 'env' or 'custom' or 'none'
             authSuccess: false,
-            authError: null,
             dbConnected: false
         };
 
-        // Configuração Firebase Segura
-        let firebaseConfig;
+        // 1. Tenta pegar config do ambiente (Environment)
+        let envConfig = null;
         try {
-            // Tenta ler a configuração injetada
             if (typeof __firebase_config !== 'undefined') {
-                firebaseConfig = JSON.parse(__firebase_config);
-                window.diag.configLoaded = true;
-            } else {
-                throw new Error("Variável de config indefinida");
+                envConfig = JSON.parse(__firebase_config);
             }
-        } catch (e) {
-            console.warn("Modo Offline: Configuração não encontrada.", e);
-            firebaseConfig = {}; 
-            window.diag.configLoaded = false;
-        }
-        
+        } catch (e) { console.warn("Sem config de ambiente"); }
+
+        // 2. Tenta pegar config personalizada do usuário (LocalStorage)
+        let customConfig = null;
+        try {
+            const stored = localStorage.getItem('custom_firebase_config');
+            if (stored) customConfig = JSON.parse(stored);
+        } catch (e) { console.warn("Sem config customizada"); }
+
+        // Decide qual usar (Custom tem prioridade se o usuário configurou, pois ele quer forçar isso)
+        let activeConfig = customConfig || envConfig || {};
+        window.diag.configSource = customConfig ? 'custom' : (envConfig ? 'env' : 'none');
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Expor função de conexão manual globalmente
+        // Função Global de Conexão
         window.manualFirebaseConnect = async () => {
-             if (Object.keys(firebaseConfig).length > 0) {
+             // Atualiza a config ativa caso tenha mudado
+             try {
+                const stored = localStorage.getItem('custom_firebase_config');
+                if (stored) {
+                    activeConfig = JSON.parse(stored);
+                    window.diag.configSource = 'custom';
+                }
+             } catch(e) {}
+
+             if (Object.keys(activeConfig).length > 0) {
                 try {
-                    const firebaseApp = initializeApp(firebaseConfig);
+                    // Evita reinicializar com mesmo nome se já existe, tenta usar DEFAULT ou cria nome unico
+                    let firebaseApp;
+                    try {
+                        firebaseApp = initializeApp(activeConfig); // Tenta default
+                    } catch(err) {
+                        // Se já existe default, vamos tentar pegar a instância ou recriar
+                        // Para simplificar neste contexto single-file, assumimos reload de página para troca de config crítica
+                        // Mas tentaremos continuar
+                        console.log("App já inicializado ou erro:", err);
+                        return false; 
+                    }
+
                     const auth = getAuth(firebaseApp);
                     const db = getFirestore(firebaseApp);
 
                     // Expor para o escopo global
                     window.db = db;
                     window.auth = auth;
-                    window.appId = appId;
+                    window.appId = appId; // Se usar config customizada, o appId é menos relevante para segurança, mas usado no caminho
                     window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
                     
-                    window.diag.authAttempted = true;
-                    
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    // Auth Logic
+                    // Se for config customizada, geralmente Anonymous Auth precisa estar ativado no Console do Firebase
+                    if (window.diag.configSource === 'env' && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
-                    console.log("Re-autenticado com sucesso");
+                    
+                    console.log(`Conectado via ${window.diag.configSource}`);
                     window.diag.authSuccess = true;
                     window.isFirebaseReady = true;
                     return true;
                 } catch (error) {
-                    console.error("Erro de Autenticação Manual:", error);
+                    console.error("Erro de Conexão:", error);
                     window.diag.authSuccess = false;
-                    window.diag.authError = error.message;
                     return false;
                 }
             } else {
-                console.warn("Sem configuração para conectar.");
                 return false;
             }
         };
 
-        // Inicializa automaticamente
+        // Inicializa
         window.manualFirebaseConnect();
 
     </script>
@@ -162,9 +182,14 @@
                     <i class="fa-solid fa-lightbulb w-6"></i> Banco de Ideias
                 </button>
                 
-                <!-- Botão de Diagnóstico (Novo) -->
+                <!-- Botão de Diagnóstico -->
                 <button onclick="app.runDiagnostics()" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 mt-4 border-t border-gray-100 dark:border-gray-700 pt-4">
                     <i class="fa-solid fa-stethoscope w-6"></i> Diagnóstico
+                </button>
+                
+                <!-- Botão Backup (Novo) -->
+                <button onclick="app.navigate('backup')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-green-50 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400 mt-2">
+                    <i class="fa-solid fa-cloud-gear w-6"></i> Nuvem & Backup
                 </button>
             </nav>
 
@@ -365,7 +390,7 @@
                     </div>
                 </div>
 
-                <!-- 4. IDEAS VIEW (NEW) -->
+                <!-- 4. IDEAS VIEW -->
                 <div id="view-ideas" class="view-section hidden">
                     <div class="mb-6">
                         <h2 class="text-2xl font-bold mb-2">Banco de Ideias</h2>
@@ -395,6 +420,95 @@
                         <div id="ideas-empty" class="hidden p-8 text-center text-gray-500">
                             <i class="fa-regular fa-lightbulb text-4xl mb-3 opacity-30"></i>
                             <p>Nenhuma ideia registrada ainda.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. BACKUP & CLOUD VIEW (UPDATED) -->
+                <div id="view-backup" class="view-section hidden">
+                    <div class="mb-6">
+                        <h2 class="text-2xl font-bold mb-2">Nuvem & Backup</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Gerencie seus dados. Sincronize com a nuvem ou faça backups manuais.</p>
+                    </div>
+
+                    <!-- 1. Cloud Config (NEW & CRITICAL) -->
+                    <div class="mb-8 bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-xl border border-indigo-200 dark:border-indigo-800">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+                                <i class="fa-solid fa-cloud text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-lg">Configuração da Nuvem (Sincronizar entre Dispositivos)</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Para conectar múltiplos computadores, use o mesmo banco de dados.</p>
+                            </div>
+                        </div>
+
+                        <div id="cloud-config-status" class="mb-4 text-sm font-medium">
+                            Status atual: <span class="text-gray-500">Verificando...</span>
+                        </div>
+
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer list-none text-indigo-600 dark:text-indigo-400 hover:text-indigo-800">
+                                <span>Configurar Conexão Personalizada (Firebase)</span>
+                                <span class="transition group-open:rotate-180">
+                                    <svg fill="none" height="24" shape-rendering="geometricPrecision" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="24"><path d="M6 9l6 6 6-6"></path></svg>
+                                </span>
+                            </summary>
+                            <div class="text-sm mt-4 text-gray-600 dark:text-gray-300 space-y-3">
+                                <p>
+                                    Crie um projeto gratuito no <a href="https://console.firebase.google.com/" target="_blank" class="underline text-blue-500">Firebase Console</a>, ative o "Firestore Database" e "Authentication (Anonymous)", copie a configuração do app web e cole abaixo.
+                                </p>
+                                <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm p-3 font-mono text-xs" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "..." }'></textarea>
+                                <div class="flex gap-2">
+                                    <button onclick="app.saveCustomConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                                        Salvar e Conectar
+                                    </button>
+                                    <button onclick="app.clearCustomConfig()" class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition">
+                                        Voltar ao Padrão
+                                    </button>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="border-t border-gray-200 dark:border-gray-700 my-8 relative">
+                        <span class="absolute top-[-10px] left-1/2 transform -translate-x-1/2 bg-gray-50 dark:bg-gray-900 px-3 text-xs text-gray-400 uppercase tracking-widest">Ou use modo manual</span>
+                    </div>
+
+                    <!-- Manual Backup Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Backup Card -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-green-200 dark:border-green-900 shadow-sm">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-300">
+                                    <i class="fa-solid fa-download text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-lg">Fazer Backup</h3>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Salvar tudo em um arquivo.</p>
+                                </div>
+                            </div>
+                            <button onclick="app.backupData()" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition flex items-center justify-center">
+                                <i class="fa-solid fa-file-export mr-2"></i> Baixar Dados (Backup)
+                            </button>
+                        </div>
+
+                        <!-- Restore Card -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-blue-200 dark:border-blue-900 shadow-sm">
+                            <div class="flex items-center gap-4 mb-4">
+                                <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300">
+                                    <i class="fa-solid fa-upload text-xl"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-lg">Restaurar Dados</h3>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Carregar de um arquivo.</p>
+                                </div>
+                            </div>
+                            <label class="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 rounded-lg transition flex items-center justify-center cursor-pointer">
+                                <i class="fa-solid fa-folder-open mr-2"></i> Selecionar Arquivo
+                                <input type="file" id="restore-file-input" accept=".json" class="hidden" onchange="app.restoreData(this)">
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -552,9 +666,16 @@
             ],
             
             init() {
+                // Check if Custom Config exists to populate textarea
+                const storedConfig = localStorage.getItem('custom_firebase_config');
+                if (storedConfig) {
+                     // Wait for view-backup to render if needed, or just set if user goes there
+                     // We handle this inside navigate/backup
+                }
+                
                 // Monitoramento de conexão com timeout
                 let attempts = 0;
-                const maxAttempts = 10; // Reduzi o tempo de espera para 10s
+                const maxAttempts = 10; 
 
                 const checkFirebase = setInterval(() => {
                     attempts++;
@@ -562,19 +683,19 @@
                     if (window.isFirebaseReady) {
                         clearInterval(checkFirebase);
                         this.offlineMode = false;
-                        document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
-                        document.getElementById('connection-btn').classList.remove('animate-pulse');
+                        this.updateConnectionStatusUI('success', `Conectado (${window.diag.configSource})`);
                         window.diag.dbConnected = true;
                         this.setupRealtimeListener();
-                    } else if (window.firebaseInitializationError || attempts >= maxAttempts) {
+                    } else if (attempts >= maxAttempts) {
                         clearInterval(checkFirebase);
+                        // Se falhou, ativa offline
                         this.enableOfflineMode();
                         window.diag.dbConnected = false;
                     }
                 }, 1000);
                 
                 // Feedback visual imediato
-                document.getElementById('connection-status').innerHTML = '<span class="text-yellow-600 animate-pulse flex items-center gap-1"><i class="fa-solid fa-circle-notch fa-spin"></i> Conectando...</span>';
+                this.updateConnectionStatusUI('loading', 'Conectando...');
 
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -591,41 +712,50 @@
                 this.navigate('dashboard');
             },
             
+            updateConnectionStatusUI(status, msg) {
+                const el = document.getElementById('connection-status');
+                const btn = document.getElementById('connection-btn');
+                
+                if (status === 'success') {
+                    el.innerHTML = `<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> ${msg}</span>`;
+                    btn.classList.remove('animate-pulse');
+                } else if (status === 'loading') {
+                    el.innerHTML = '<span class="text-yellow-600 animate-pulse flex items-center gap-1"><i class="fa-solid fa-circle-notch fa-spin"></i> Conectando...</span>';
+                } else if (status === 'error') {
+                    el.innerHTML = `<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> ${msg}</span>`;
+                    btn.classList.add('animate-pulse');
+                }
+            },
+            
             runDiagnostics() {
                 const diag = window.diag || {};
                 let report = "--- Diagnóstico de Conexão ---\n\n";
                 
-                // 1. Configuração
-                report += `1. Configuração Carregada: ${diag.configLoaded ? "SIM (OK)" : "NÃO (Erro Crítico)"}\n`;
-                if (!diag.configLoaded) report += "   -> Motivo: O app provavelmente foi salvo fora do ambiente original.\n";
+                report += `1. Fonte da Configuração: ${diag.configSource.toUpperCase()}\n`;
+                if (diag.configSource === 'none') report += "   -> ERRO: Nenhuma chave de acesso encontrada (Ambiente ou Customizada).\n";
+                if (diag.configSource === 'custom') report += "   -> OK: Usando configuração personalizada do usuário.\n";
                 
-                // 2. Autenticação
-                report += `2. Tentativa de Login: ${diag.authAttempted ? "Sim" : "Ainda não"}\n`;
-                report += `3. Login Bem-sucedido: ${diag.authSuccess ? "SIM (OK)" : "NÃO"}\n`;
-                if (diag.authError) report += `   -> Erro: ${diag.authError}\n`;
+                report += `2. Login Bem-sucedido: ${diag.authSuccess ? "SIM (OK)" : "NÃO"}\n`;
                 
-                // 3. Banco de Dados
-                report += `4. Conexão ao Banco: ${diag.dbConnected ? "SIM (OK)" : "NÃO (Modo Offline)"}\n`;
+                report += `3. Banco de Dados: ${diag.dbConnected ? "Conectado" : "Offline (Local)"}\n\n`;
                 
-                // 4. Rede
-                report += `5. Internet do Navegador: ${navigator.onLine ? "Online" : "Offline"}\n\n`;
-                
-                report += diag.configLoaded && diag.authSuccess 
-                    ? "Conclusão: Tudo parece correto. Se não vê dados, pode ser que esteja em outra conta ou projeto." 
-                    : "Conclusão: Há falhas de configuração. Os dados serão salvos apenas neste dispositivo.";
+                report += diag.authSuccess 
+                    ? "Conclusão: Você está conectado à nuvem. Se usar a mesma configuração em outro PC, verá os mesmos dados." 
+                    : "Conclusão: Modo Offline ativado. Dados só existem neste navegador.";
                 
                 alert(report);
             },
 
             enableOfflineMode() {
                 this.offlineMode = true;
-                console.log("Ativando modo offline...");
-                // Mensagem mais clara sobre a causa
-                const isConfigMissing = window.diag && window.diag.configLoaded === false;
-                const statusText = isConfigMissing ? "Erro Config (Offline)" : "Offline (Reconectar)";
+                const configSource = window.diag?.configSource || 'none';
                 
-                document.getElementById('connection-status').innerHTML = `<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-wifi"></i> ${statusText}</span>`;
-                document.getElementById('connection-btn').classList.add('animate-pulse');
+                let msg = "Offline (Local)";
+                if (configSource === 'none') msg = "Sem Config (Offline)";
+                else if (configSource === 'custom') msg = "Erro Custom (Offline)";
+                else msg = "Erro Conexão (Offline)";
+
+                this.updateConnectionStatusUI('error', msg);
                 document.getElementById('loading-state').classList.add('hidden');
                 
                 // Load Local Data
@@ -643,23 +773,25 @@
                 }
                 
                 this.refreshCurrentView();
-                this.showToast('Modo Offline Ativado', 'Dados salvos localmente (não na nuvem).', false);
+                this.showToast('Modo Offline Ativado', 'Não há sincronização.', false);
+                
+                // Update cloud config status text in backup view
+                const statusEl = document.getElementById('cloud-config-status');
+                if(statusEl) statusEl.innerHTML = `Status atual: <span class="text-red-600 font-bold">Desconectado (Modo Offline)</span>`;
             },
             
             async retryConnection() {
-                document.getElementById('connection-status').innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-circle-notch fa-spin"></i> Tentando...</span>';
+                this.updateConnectionStatusUI('loading', 'Tentando...');
                 
                 if (window.manualFirebaseConnect) {
                     const success = await window.manualFirebaseConnect();
                     if (success) {
                         this.offlineMode = false;
-                        document.getElementById('connection-status').innerHTML = '<span class="text-green-500 font-bold flex items-center gap-1"><i class="fa-solid fa-link"></i> Conectado</span>';
-                        document.getElementById('connection-btn').classList.remove('animate-pulse');
+                        this.updateConnectionStatusUI('success', `Conectado (${window.diag.configSource})`);
                         this.setupRealtimeListener();
                         this.showToast('Conexão Restaurada!', 'Sincronizando dados...', true);
                     } else {
-                        // Keep offline mode but visually indicate failure
-                        this.enableOfflineMode(); // Reset visual to offline
+                        this.enableOfflineMode();
                         this.showToast('Falha na Conexão', 'Verifique o diagnóstico.', false);
                     }
                 } else {
@@ -669,6 +801,35 @@
 
             saveLocal() {
                 localStorage.setItem('marketingPlannerData_offline', JSON.stringify(this.data));
+            },
+            
+            // --- CUSTOM CLOUD CONFIG LOGIC ---
+            saveCustomConfig() {
+                const input = document.getElementById('custom-config-input');
+                const val = input.value.trim();
+                if (!val) {
+                    alert("Por favor, cole a configuração JSON do Firebase.");
+                    return;
+                }
+                
+                try {
+                    // Validate JSON
+                    const parsed = JSON.parse(val);
+                    if (!parsed.apiKey || !parsed.projectId) throw new Error("JSON parece incompleto (falta apiKey ou projectId)");
+                    
+                    localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
+                    alert("Configuração salva! A página será recarregada para tentar conectar.");
+                    location.reload();
+                } catch (e) {
+                    alert("Erro no JSON: " + e.message + "\nCertifique-se de copiar apenas o objeto {...}");
+                }
+            },
+            
+            clearCustomConfig() {
+                if(confirm("Deseja apagar a configuração personalizada e tentar usar a padrão do ambiente?")) {
+                    localStorage.removeItem('custom_firebase_config');
+                    location.reload();
+                }
             },
 
             setupRealtimeListener() {
@@ -680,6 +841,13 @@
 
                 document.getElementById('loading-state').classList.remove('hidden');
                 document.getElementById('empty-state').classList.add('hidden');
+
+                // Update Status UI in Backup View
+                const statusEl = document.getElementById('cloud-config-status');
+                if(statusEl) {
+                     const sourceName = window.diag.configSource === 'custom' ? 'Personalizada' : 'Padrão';
+                     statusEl.innerHTML = `Status atual: <span class="text-green-600 font-bold">Conectado (${sourceName})</span>`;
+                }
 
                 window.firebaseOps.onSnapshot(q, (snapshot) => {
                     this.data = [];
@@ -697,8 +865,8 @@
                     this.refreshCurrentView();
                 }, (error) => {
                     console.error("Error fetching data: ", error);
-                    window.diag.dbConnected = false; // Mark db failure
-                    this.enableOfflineMode(); // Fallback on runtime error
+                    window.diag.dbConnected = false; 
+                    this.enableOfflineMode(); 
                 });
             },
 
@@ -735,6 +903,15 @@
                 if (target === 'dashboard') this.renderDashboard();
                 if (target === 'activities') this.renderActivities();
                 if (target === 'ideas') this.renderIdeas();
+                if (target === 'backup') { 
+                    // Populate textarea if config exists
+                    const stored = localStorage.getItem('custom_firebase_config');
+                    if(stored) {
+                        const el = document.getElementById('custom-config-input');
+                        // Pretty print
+                        el.value = JSON.stringify(JSON.parse(stored), null, 2);
+                    }
+                }
                 if (target === 'calendar') this.initCalendar();
             },
 
@@ -1100,6 +1277,66 @@
                         alert('Erro ao excluir: ' + e.message);
                     }
                 }
+            },
+
+            // --- BACKUP & RESTORE LOGIC (Free "Database") ---
+            backupData() {
+                const dataStr = JSON.stringify(this.data, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const now = new Date();
+                const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `backup_marketing_${timestamp}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                this.showToast('Backup Realizado!', 'Arquivo baixado com sucesso.');
+            },
+
+            restoreData(input) {
+                const file = input.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (!Array.isArray(importedData)) throw new Error("Formato inválido");
+
+                        if(!confirm(`Deseja carregar ${importedData.length} itens? Isso vai substituir/mesclar com os dados atuais.`)) {
+                            input.value = ''; // Reset
+                            return;
+                        }
+
+                        // Merge Logic: Overwrite existing IDs, add new ones
+                        let addedCount = 0;
+                        let updatedCount = 0;
+
+                        for (const item of importedData) {
+                            // Check duplication
+                            const exists = this.data.find(d => d.id === item.id);
+                            
+                            // Save to current storage method (Cloud or Local)
+                            await this.saveItemGeneric(item, null); 
+                            
+                            if(exists) updatedCount++;
+                            else addedCount++;
+                        }
+                        
+                        this.showToast('Restauração Concluída!', `${addedCount} novos, ${updatedCount} atualizados.`);
+                        this.navigate('dashboard'); // Go to home to see changes
+                    } catch (err) {
+                        alert("Erro ao ler arquivo: " + err.message);
+                    }
+                    input.value = ''; // Reset input
+                };
+                reader.readAsText(file);
             },
 
             // Unified Save Helper
