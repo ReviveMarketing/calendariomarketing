@@ -50,10 +50,12 @@
                 const el = document.getElementById('global-error-banner');
                 if(el && (msg.includes('Firebase') || msg.includes('auth') || msg.includes('api-key'))) {
                     el.classList.remove('hidden');
-                    el.innerHTML = `<strong>Erro de Sistema:</strong> ${msg}`;
+                    el.innerHTML = `<strong>Atenção (Nuvem):</strong> ${msg.replace('Uncaught ', '')}`;
+                    // Não trava o app, apenas avisa
                 }
             }
-            // Não retorna true para permitir que o erro vá para o console também
+            // Retorna false para permitir log no console
+            return false;
         };
     </script>
 
@@ -88,8 +90,11 @@
         window.diag.configSource = customConfig ? 'custom' : (envConfig ? 'env' : 'none');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Conexão Principal (Definição apenas, execução movida para o app.init)
+        // Conexão Principal
         window.connectFirebase = async () => {
+             // Verificação de segurança: Se os módulos não carregaram, aborta e tenta depois
+             if (!window.FirebaseMods) return false;
+
              const { initializeApp, getApps, getApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } = window.FirebaseMods;
 
              // Tenta recarregar config salva
@@ -142,7 +147,6 @@
 
                     return true;
                 } catch (error) {
-                    // *** AQUI ESTÁ O ERRO REAL ***
                     console.error("ERRO FIREBASE:", error);
                     window.diag.lastError = error.message;
                     
@@ -178,8 +182,11 @@
             }
         };
 
-        // REMOVIDO: window.connectFirebase() daqui. 
-        // Será chamado no final do carregamento da página para garantir que a UI exista.
+        // GATILHO AUTOMÁTICO: Tenta conectar assim que este script carregar
+        // Se o app já estiver pronto, conecta. Se não, o app conecta depois.
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            setTimeout(() => window.connectFirebase(), 100);
+        }
     </script>
 
     <style>
@@ -723,9 +730,12 @@
                 
                 this.navigate('dashboard');
                 
-                // Tenta conectar ao Firebase (agora que o DOM e window.app existem)
-                if (window.connectFirebase) {
+                // Tenta conectar ao Firebase de forma segura
+                // Se a função já existe, chama. Se não, o script type="module" vai chamar quando terminar.
+                if (typeof window.connectFirebase === 'function') {
                     window.connectFirebase();
+                } else {
+                    console.log("Sistema: Aguardando carregamento dos módulos de nuvem...");
                 }
             },
             
@@ -737,7 +747,7 @@
                     el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1"><i class="fa-solid fa-cloud"></i> ${msg}</span>`;
                 } else if (status === 'error') {
                     el.innerHTML = `<span class="text-red-600 font-bold flex items-center gap-1" title="${msg}"><i class="fa-solid fa-circle-exclamation"></i> Erro Config</span>`;
-                    alert(msg); // Força alerta para o usuário ver o erro
+                    // Removemos o alert() intrusivo, pois o banner superior já mostra o erro
                 } else {
                     el.innerHTML = `<span class="text-gray-500 flex items-center gap-1"><i class="fa-solid fa-laptop"></i> Modo Local</span>`;
                 }
