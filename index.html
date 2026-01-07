@@ -45,14 +45,15 @@
     <!-- Tratamento de Erros VISÍVEL -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            // Se for erro de Firebase, mostra no topo
-            if(msg.includes('Firebase') || msg.includes('auth') || msg.includes('api-key')) {
+            // Se o DOM já estiver pronto, mostra o erro
+            if (document.body) {
                 const el = document.getElementById('global-error-banner');
-                if(el) {
+                if(el && (msg.includes('Firebase') || msg.includes('auth') || msg.includes('api-key'))) {
                     el.classList.remove('hidden');
                     el.innerHTML = `<strong>Erro de Sistema:</strong> ${msg}`;
                 }
             }
+            // Não retorna true para permitir que o erro vá para o console também
         };
     </script>
 
@@ -87,7 +88,7 @@
         window.diag.configSource = customConfig ? 'custom' : (envConfig ? 'env' : 'none');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Conexão Principal
+        // Conexão Principal (Definição apenas, execução movida para o app.init)
         window.connectFirebase = async () => {
              const { initializeApp, getApps, getApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } = window.FirebaseMods;
 
@@ -160,6 +161,13 @@
                     
                     if(window.app && window.app.updateConnectionUI) {
                         window.app.updateConnectionUI('error', friendlyMsg);
+                    } else {
+                        // Fallback se o app ainda não estiver pronto
+                        const banner = document.getElementById('global-error-banner');
+                        if(banner) {
+                            banner.classList.remove('hidden');
+                            banner.innerHTML = `<strong>${friendlyMsg}</strong>`;
+                        }
                     }
                     
                     window.diag.authSuccess = false;
@@ -170,8 +178,8 @@
             }
         };
 
-        // Inicia
-        window.connectFirebase();
+        // REMOVIDO: window.connectFirebase() daqui. 
+        // Será chamado no final do carregamento da página para garantir que a UI exista.
     </script>
 
     <style>
@@ -714,6 +722,11 @@
                 });
                 
                 this.navigate('dashboard');
+                
+                // Tenta conectar ao Firebase (agora que o DOM e window.app existem)
+                if (window.connectFirebase) {
+                    window.connectFirebase();
+                }
             },
             
             updateConnectionUI(status, msg) {
