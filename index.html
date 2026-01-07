@@ -458,7 +458,7 @@
                                 <p>
                                     Crie um projeto gratuito no <a href="https://console.firebase.google.com/" target="_blank" class="underline text-blue-500">Firebase Console</a>, ative o "Firestore Database" e "Authentication (Anonymous)", copie a configuração do app web e cole abaixo.
                                 </p>
-                                <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm p-3 font-mono text-xs" placeholder='{ "apiKey": "...", "authDomain": "...", "projectId": "..." }'></textarea>
+                                <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm p-3 font-mono text-xs" placeholder='Copie e cole o bloco de código do Firebase aqui'></textarea>
                                 <div class="flex gap-2">
                                     <button onclick="app.saveCustomConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                                         Salvar e Conectar
@@ -803,25 +803,53 @@
                 localStorage.setItem('marketingPlannerData_offline', JSON.stringify(this.data));
             },
             
-            // --- CUSTOM CLOUD CONFIG LOGIC ---
+            // --- CUSTOM CLOUD CONFIG LOGIC (IMPROVED) ---
             saveCustomConfig() {
                 const input = document.getElementById('custom-config-input');
-                const val = input.value.trim();
+                let val = input.value.trim();
                 if (!val) {
-                    alert("Por favor, cole a configuração JSON do Firebase.");
+                    alert("Por favor, cole a configuração do Firebase.");
                     return;
                 }
                 
+                // Tenta limpar o input se o usuário colou código JS em vez de JSON puro
+                // Procura por algo que pareça um objeto config: { ... "apiKey": ... }
+                // Remove 'const firebaseConfig =' e ponto-vírgula se houver
+                
                 try {
-                    // Validate JSON
-                    const parsed = JSON.parse(val);
-                    if (!parsed.apiKey || !parsed.projectId) throw new Error("JSON parece incompleto (falta apiKey ou projectId)");
+                    let parsed;
+                    
+                    // 1. Tenta parse direto (se o usuário colou JSON limpo)
+                    try {
+                        parsed = JSON.parse(val);
+                    } catch (e) {
+                        // 2. Se falhar, tenta extrair o objeto do meio do texto
+                        // Procura a primeira chave '{' e a última '}'
+                        const firstBrace = val.indexOf('{');
+                        const lastBrace = val.lastIndexOf('}');
+                        
+                        if (firstBrace !== -1 && lastBrace !== -1) {
+                            let jsonCandidate = val.substring(firstBrace, lastBrace + 1);
+                            
+                            // Se estiver em formato JS (sem aspas nas chaves), JSON.parse falha.
+                            // Tentamos usar Function constructor para interpretar como objeto JS seguro
+                            try {
+                                parsed = new Function("return " + jsonCandidate)();
+                            } catch (e2) {
+                                throw new Error("Não consegui ler o código. Tente copiar apenas o conteúdo entre { e }.");
+                            }
+                        } else {
+                             throw new Error("Não encontrei as chaves { } do objeto.");
+                        }
+                    }
+
+                    if (!parsed || !parsed.apiKey || !parsed.projectId) throw new Error("Configuração parece incompleta (falta apiKey ou projectId)");
                     
                     localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
-                    alert("Configuração salva! A página será recarregada para tentar conectar.");
+                    alert("Configuração salva! A página será recarregada para conectar.");
                     location.reload();
                 } catch (e) {
-                    alert("Erro no JSON: " + e.message + "\nCertifique-se de copiar apenas o objeto {...}");
+                    alert("Erro ao ler configuração: " + e.message + "\n\nTente copiar apenas o trecho que começa com { e termina com }.");
                 }
             },
             
