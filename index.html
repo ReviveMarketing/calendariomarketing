@@ -807,49 +807,66 @@
             saveCustomConfig() {
                 const input = document.getElementById('custom-config-input');
                 let val = input.value.trim();
+                
+                // Limpeza básica de aspas inteligentes ou formatação ruim
+                val = val.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
+
                 if (!val) {
                     alert("Por favor, cole a configuração do Firebase.");
                     return;
                 }
                 
-                // Tenta limpar o input se o usuário colou código JS em vez de JSON puro
-                // Procura por algo que pareça um objeto config: { ... "apiKey": ... }
-                // Remove 'const firebaseConfig =' e ponto-vírgula se houver
-                
                 try {
-                    let parsed;
+                    let parsed = {};
                     
-                    // 1. Tenta parse direto (se o usuário colou JSON limpo)
+                    // Estratégia 1: Tenta JSON.parse direto
                     try {
                         parsed = JSON.parse(val);
                     } catch (e) {
-                        // 2. Se falhar, tenta extrair o objeto do meio do texto
-                        // Procura a primeira chave '{' e a última '}'
-                        const firstBrace = val.indexOf('{');
-                        const lastBrace = val.lastIndexOf('}');
+                        // Estratégia 2: Regex para extrair campos chave individualmente
+                        // Isso funciona mesmo se o usuário colar lixo ao redor ou formato JS inválido
+                        const extract = (key) => {
+                            const match = val.match(new RegExp(`${key}["']?\\s*:\\s*["']([^"']+)["']`));
+                            return match ? match[1] : null;
+                        };
                         
-                        if (firstBrace !== -1 && lastBrace !== -1) {
-                            let jsonCandidate = val.substring(firstBrace, lastBrace + 1);
-                            
-                            // Se estiver em formato JS (sem aspas nas chaves), JSON.parse falha.
-                            // Tentamos usar Function constructor para interpretar como objeto JS seguro
-                            try {
-                                parsed = new Function("return " + jsonCandidate)();
-                            } catch (e2) {
-                                throw new Error("Não consegui ler o código. Tente copiar apenas o conteúdo entre { e }.");
-                            }
-                        } else {
-                             throw new Error("Não encontrei as chaves { } do objeto.");
+                        parsed.apiKey = extract('apiKey');
+                        parsed.authDomain = extract('authDomain');
+                        parsed.projectId = extract('projectId');
+                        // Outros campos opcionais
+                        parsed.storageBucket = extract('storageBucket');
+                        parsed.messagingSenderId = extract('messagingSenderId');
+                        parsed.appId = extract('appId');
+
+                        // Se não achou pelo menos a API Key e Project ID, tenta a estratégia antiga de Function
+                        if (!parsed.apiKey || !parsed.projectId) {
+                             const firstBrace = val.indexOf('{');
+                             const lastBrace = val.lastIndexOf('}');
+                             if (firstBrace !== -1 && lastBrace !== -1) {
+                                let jsonCandidate = val.substring(firstBrace, lastBrace + 1);
+                                try {
+                                    parsed = new Function("return " + jsonCandidate)();
+                                } catch (e2) {
+                                    throw new Error("Formato não reconhecido.");
+                                }
+                             }
                         }
                     }
 
-                    if (!parsed || !parsed.apiKey || !parsed.projectId) throw new Error("Configuração parece incompleta (falta apiKey ou projectId)");
+                    if (!parsed || !parsed.apiKey || !parsed.projectId) {
+                        throw new Error("Não consegui encontrar 'apiKey' ou 'projectId' no texto colado. Verifique se copiou o código correto.");
+                    }
                     
                     localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
-                    alert("Configuração salva! A página será recarregada para conectar.");
-                    location.reload();
+                    
+                    // Visual feedback before reload
+                    const statusEl = document.getElementById('cloud-config-status');
+                    if(statusEl) statusEl.innerHTML = `<span class="text-green-600 font-bold">Configuração salva! Reiniciando...</span>`;
+                    
+                    setTimeout(() => location.reload(), 1000);
+                    
                 } catch (e) {
-                    alert("Erro ao ler configuração: " + e.message + "\n\nTente copiar apenas o trecho que começa com { e termina com }.");
+                    alert("Erro ao ler configuração: " + e.message + "\n\nTente copiar APENAS as linhas dentro das chaves { ... } no site do Firebase.");
                 }
             },
             
