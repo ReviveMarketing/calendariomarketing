@@ -45,37 +45,23 @@
     <!-- Tratamento de Erros VISÍVEL -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            // Se o DOM já estiver pronto, mostra o erro
+            // Ignora erros de script de terceiros para não assustar o usuário, a menos que seja crítico
+            if (msg.toLowerCase().includes('script error')) return false;
+            
             if (document.body) {
                 const el = document.getElementById('global-error-banner');
+                // Apenas mostra erros de configuração de nuvem
                 if(el && (msg.includes('Firebase') || msg.includes('auth') || msg.includes('api-key'))) {
                     el.classList.remove('hidden');
                     el.innerHTML = `<strong>Atenção (Nuvem):</strong> ${msg.replace('Uncaught ', '')}`;
-                    // Não trava o app, apenas avisa
                 }
             }
-            // Retorna false para permitir log no console
             return false;
         };
     </script>
 
-    <!-- Firebase SDKs (Versão Estável 10.13.1) -->
-    <script type="module">
-        import { initializeApp, getApps, getApp, deleteApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
-
-        // Expor imports globalmente para o sistema de diagnóstico
-        window.FirebaseMods = { initializeApp, getApps, getApp, deleteApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
-
-        // Variáveis de Diagnóstico Global
-        window.diag = {
-            configSource: 'none',
-            authSuccess: false,
-            dbConnected: false,
-            lastError: ''
-        };
-
+    <!-- Lógica Principal (Não usa type=module para evitar bloqueio) -->
+    <script>
         // Carrega configurações
         let envConfig = null;
         try { if (typeof __firebase_config !== 'undefined') envConfig = JSON.parse(__firebase_config); } catch (e) {}
@@ -87,105 +73,69 @@
         } catch (e) {}
 
         let activeConfig = customConfig || envConfig || {};
-        window.diag.configSource = customConfig ? 'custom' : (envConfig ? 'env' : 'none');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Conexão Principal
-        window.connectFirebase = async () => {
-             // Verificação de segurança: Se os módulos não carregaram, aborta e tenta depois
-             if (!window.FirebaseMods) return false;
-
-             const { initializeApp, getApps, getApp, getAuth, signInAnonymously, signInWithCustomToken, getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } = window.FirebaseMods;
-
-             // Tenta recarregar config salva
-             try {
-                const stored = localStorage.getItem('custom_firebase_config');
-                if (stored) {
-                    activeConfig = JSON.parse(stored);
-                    window.diag.configSource = 'custom';
-                }
-             } catch(e) {}
-
-             if (Object.keys(activeConfig).length > 0) {
-                try {
-                    let firebaseApp;
-                    // Evita duplicidade de app
-                    if (getApps().length === 0) {
-                        firebaseApp = initializeApp(activeConfig);
-                    } else {
-                        firebaseApp = getApp();
-                    }
-
-                    const auth = getAuth(firebaseApp);
-                    const db = getFirestore(firebaseApp);
-
-                    // Globais
-                    window.db = db;
-                    window.auth = auth;
-                    window.appId = appId; 
-                    window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
-                    
-                    // Auth
-                    let userCredential;
-                    if (window.diag.configSource === 'env' && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        userCredential = await signInAnonymously(auth);
-                    }
-                    
-                    console.log(`Firebase conectado. User: ${userCredential.user.uid}`);
-                    window.diag.authSuccess = true;
-                    window.isFirebaseReady = true;
-
-                    // Notifica a UI
-                    if(window.app && window.app.updateConnectionUI) {
-                        window.app.updateConnectionUI('success', 'Conectado');
-                    }
-                    
-                    // Inicia listeners
-                    if(window.app && window.app.setupRealtimeListener) window.app.setupRealtimeListener();
-
-                    return true;
-                } catch (error) {
-                    console.error("ERRO FIREBASE:", error);
-                    window.diag.lastError = error.message;
-                    
-                    let friendlyMsg = "Erro desconhecido";
-                    if (error.code === 'auth/operation-not-allowed') {
-                        friendlyMsg = "ERRO: Autenticação Anônima desativada no Firebase Console.";
-                    } else if (error.code === 'auth/api-key-not-valid-please-pass-a-valid-api-key') {
-                        friendlyMsg = "ERRO: API Key incorreta ou inválida.";
-                    } else if (error.code === 'auth/invalid-api-key') {
-                        friendlyMsg = "ERRO: API Key inválida.";
-                    } else if (error.message.includes('project-id')) {
-                        friendlyMsg = "ERRO: Project ID inválido.";
-                    } else {
-                        friendlyMsg = `Erro de Conexão: ${error.code || error.message}`;
-                    }
-                    
-                    if(window.app && window.app.updateConnectionUI) {
-                        window.app.updateConnectionUI('error', friendlyMsg);
-                    } else {
-                        // Fallback se o app ainda não estiver pronto
-                        const banner = document.getElementById('global-error-banner');
-                        if(banner) {
-                            banner.classList.remove('hidden');
-                            banner.innerHTML = `<strong>${friendlyMsg}</strong>`;
-                        }
-                    }
-                    
-                    window.diag.authSuccess = false;
-                    return false;
-                }
-            } else {
-                return false;
+        // --- SISTEMA DE CONEXÃO DINÂMICA (A "OUTRA OPÇÃO") ---
+        async function initFirebaseConnection() {
+            // Se não tiver config, nem tenta baixar os scripts
+            if (Object.keys(activeConfig).length === 0) {
+                console.log("Modo Offline: Nenhuma configuração encontrada.");
+                return;
             }
-        };
 
-        // GATILHO AUTOMÁTICO: Tenta conectar assim que este script carregar
-        // Se o app já estiver pronto, conecta. Se não, o app conecta depois.
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            setTimeout(() => window.connectFirebase(), 100);
+            const statusEl = document.getElementById('connection-status');
+            if(statusEl) statusEl.innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> Conectando...</span>';
+
+            try {
+                // Importação Dinâmica: Só baixa se precisar e não trava o resto do site
+                const { initializeApp, getApps, getApp } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js");
+                const { getAuth, signInAnonymously, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js");
+                const { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js");
+
+                let firebaseApp;
+                if (getApps().length === 0) {
+                    firebaseApp = initializeApp(activeConfig);
+                } else {
+                    firebaseApp = getApp();
+                }
+
+                const auth = getAuth(firebaseApp);
+                const db = getFirestore(firebaseApp);
+
+                // Exporta para uso global no app
+                window.db = db;
+                window.auth = auth;
+                window.appId = appId;
+                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+
+                // Autenticação
+                let userCredential;
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    userCredential = await signInAnonymously(auth);
+                }
+
+                console.log(`Firebase conectado via Importação Dinâmica. User: ${userCredential.user.uid}`);
+                
+                if(window.app) {
+                    window.app.updateConnectionUI('success', 'Conectado');
+                    window.app.setupRealtimeListener();
+                }
+
+            } catch (error) {
+                console.error("Falha na conexão dinâmica:", error);
+                let friendlyMsg = "Erro de Conexão";
+                
+                if (error.code === 'auth/operation-not-allowed') friendlyMsg = "Auth Anônima Desativada";
+                else if (error.code === 'auth/invalid-api-key') friendlyMsg = "API Key Inválida";
+                else if (error.message.includes('project-id')) friendlyMsg = "Project ID Inválido";
+                else if (error.message.includes('Failed to fetch')) friendlyMsg = "Bloqueio de Rede/Firewall";
+                
+                if(window.app) {
+                    window.app.updateConnectionUI('error', friendlyMsg);
+                }
+            }
         }
     </script>
 
@@ -246,9 +196,9 @@
             <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                 <!-- Status de Conexão -->
-                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50">
+                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition" onclick="initFirebaseConnection()" title="Clique para tentar reconectar">
                     <span id="connection-status" class="flex items-center gap-1 text-gray-500">
-                        <i class="fa-solid fa-laptop"></i> Verificando...
+                        <i class="fa-solid fa-laptop"></i> Modo Local
                     </span>
                 </div>
                 
@@ -730,13 +680,12 @@
                 
                 this.navigate('dashboard');
                 
-                // Tenta conectar ao Firebase de forma segura
-                // Se a função já existe, chama. Se não, o script type="module" vai chamar quando terminar.
-                if (typeof window.connectFirebase === 'function') {
-                    window.connectFirebase();
-                } else {
-                    console.log("Sistema: Aguardando carregamento dos módulos de nuvem...");
-                }
+                // Tenta conectar ao Firebase de forma dinâmica (Sem travar o app)
+                setTimeout(() => {
+                    if (typeof initFirebaseConnection === 'function') {
+                        initFirebaseConnection();
+                    }
+                }, 500);
             },
             
             updateConnectionUI(status, msg) {
@@ -745,9 +694,10 @@
                 
                 if (status === 'success') {
                     el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1"><i class="fa-solid fa-cloud"></i> ${msg}</span>`;
+                    // Remove modo offline ao conectar com sucesso
+                    this.offlineMode = false;
                 } else if (status === 'error') {
                     el.innerHTML = `<span class="text-red-600 font-bold flex items-center gap-1" title="${msg}"><i class="fa-solid fa-circle-exclamation"></i> Erro Config</span>`;
-                    // Removemos o alert() intrusivo, pois o banner superior já mostra o erro
                 } else {
                     el.innerHTML = `<span class="text-gray-500 flex items-center gap-1"><i class="fa-solid fa-laptop"></i> Modo Local</span>`;
                 }
@@ -767,14 +717,14 @@
                             cloudData.push({ id: doc.id, ...doc.data() });
                         });
                         
-                        if (cloudData.length > 0 || !this.offlineMode) {
+                        if (cloudData.length > 0) {
                             this.data = cloudData;
                             this.saveLocal();
                             this.refreshCurrentView();
                         }
                     }, (error) => {
                         console.warn("Realtime error:", error);
-                        // Não incomoda o usuário com erro de realtime, apenas volta silenciosamente
+                        // Falha silenciosa para modo offline
                         this.offlineMode = true; 
                     });
                 } catch (e) {
