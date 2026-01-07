@@ -60,7 +60,7 @@
 
     <!-- Firebase SDKs (Versão Estável 10.13.1) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
@@ -68,7 +68,8 @@
         window.diag = {
             configSource: 'none', // 'env' or 'custom' or 'none'
             authSuccess: false,
-            dbConnected: false
+            dbConnected: false,
+            errorMsg: ''
         };
 
         // 1. Tenta pegar config do ambiente (Environment)
@@ -92,7 +93,7 @@
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // Função Global de Conexão
+        // Função Global de Conexão Robustecida
         window.manualFirebaseConnect = async () => {
              // Atualiza a config ativa caso tenha mudado
              try {
@@ -105,14 +106,18 @@
 
              if (Object.keys(activeConfig).length > 0) {
                 try {
-                    // Evita reinicializar com mesmo nome se já existe, tenta usar DEFAULT ou cria nome unico
+                    // Evita erro de "App already exists"
                     let firebaseApp;
-                    try {
-                        firebaseApp = initializeApp(activeConfig); // Tenta default
-                    } catch(err) {
-                        // Se já existe default, vamos tentar pegar a instância ou recriar
-                        console.log("App já inicializado ou erro:", err);
-                        return false; 
+                    if (getApps().length === 0) {
+                        try {
+                            firebaseApp = initializeApp(activeConfig);
+                        } catch (initErr) {
+                            console.error("Erro no initializeApp:", initErr);
+                            window.diag.errorMsg = "Configuração Inválida";
+                            return false;
+                        }
+                    } else {
+                        firebaseApp = getApp(); // Usa o já existente
                     }
 
                     const auth = getAuth(firebaseApp);
@@ -138,9 +143,11 @@
                 } catch (error) {
                     console.error("Erro de Conexão:", error);
                     window.diag.authSuccess = false;
+                    window.diag.errorMsg = error.message;
                     return false;
                 }
             } else {
+                window.diag.errorMsg = "Nenhuma configuração encontrada";
                 return false;
             }
         };
@@ -749,6 +756,7 @@
                 if (diag.configSource === 'custom') report += "   -> OK: Usando configuração personalizada do usuário.\n";
                 
                 report += `2. Login Bem-sucedido: ${diag.authSuccess ? "SIM (OK)" : "NÃO"}\n`;
+                if (!diag.authSuccess && diag.errorMsg) report += `   -> Motivo: ${diag.errorMsg}\n`;
                 
                 report += `3. Banco de Dados: ${diag.dbConnected ? "Conectado" : "Offline (Local)"}\n\n`;
                 
@@ -816,70 +824,58 @@
                 localStorage.setItem('marketingPlannerData_offline', JSON.stringify(this.data));
             },
             
-            // --- CUSTOM CLOUD CONFIG LOGIC (IMPROVED) ---
+            // --- CUSTOM CLOUD CONFIG LOGIC (REWRITTEN & SECURE) ---
             saveCustomConfig() {
                 const input = document.getElementById('custom-config-input');
-                let val = input.value.trim();
+                let val = input.value; 
                 
-                // Limpeza: remove <script>, remove 'const firebaseConfig =', remove ';' final, limpa aspas
-                val = val.replace(/<script[\s\S]*?>/gi, '').replace(/<\/script>/gi, '');
-                val = val.replace(/^\s*const\s+\w+\s*=\s*/, ''); // Remove 'const firebaseConfig ='
-                val = val.replace(/;\s*$/, ''); // Remove ';' do final
-                val = val.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
+                // 1. Limpeza de comentários JS (// ... e /* ... */) para evitar erros de parse
+                val = val.replace(/\/\/.*$/gm, ''); 
+                val = val.replace(/\/\*[\s\S]*?\*\//g, '');
 
-                if (!val) {
-                    alert("Por favor, cole a configuração do Firebase.");
-                    return;
-                }
+                let parsed = {};
                 
-                try {
-                    let parsed = {};
-                    
-                    // Estratégia 1: Tenta JSON.parse direto (caso o usuário tenha colado só o objeto limpo)
+                // 2. Extração via Regex (Busca por chave: "valor" ou chave: 'valor')
+                // Isso ignora todo o lixo ao redor (const x =, script tags, etc)
+                const extract = (text, key) => {
+                    const regex = new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`);
+                    const match = text.match(regex);
+                    return match ? match[1] : null;
+                };
+
+                parsed.apiKey = extract(val, 'apiKey');
+                parsed.authDomain = extract(val, 'authDomain');
+                parsed.projectId = extract(val, 'projectId');
+                parsed.storageBucket = extract(val, 'storageBucket');
+                parsed.messagingSenderId = extract(val, 'messagingSenderId');
+                parsed.appId = extract(val, 'appId');
+
+                // 3. Fallback: Se o Regex falhar, tenta achar o objeto JSON entre chaves { }
+                if (!parsed.apiKey || !parsed.projectId) {
                     try {
-                        parsed = JSON.parse(val);
-                    } catch (e) {
-                        // Estratégia 2: Se falhar, tenta achar o objeto JS usando Function (mais permissivo com chaves sem aspas)
-                        // Procura o bloco entre { e }
                         const firstBrace = val.indexOf('{');
                         const lastBrace = val.lastIndexOf('}');
-                        
-                        if (firstBrace !== -1 && lastBrace !== -1) {
-                            const objectString = val.substring(firstBrace, lastBrace + 1);
-                            try {
-                                parsed = new Function("return " + objectString)();
-                            } catch (e2) {
-                                // Estratégia 3: Regex para extrair campos chave individualmente (último recurso)
-                                const extract = (key) => {
-                                    const match = val.match(new RegExp(`${key}["']?\\s*:\\s*["']([^"']+)["']`));
-                                    return match ? match[1] : null;
-                                };
-                                
-                                parsed.apiKey = extract('apiKey');
-                                parsed.authDomain = extract('authDomain');
-                                parsed.projectId = extract('projectId');
-                                parsed.storageBucket = extract('storageBucket');
-                                parsed.messagingSenderId = extract('messagingSenderId');
-                                parsed.appId = extract('appId');
-                            }
+                        if (firstBrace > -1 && lastBrace > -1) {
+                            const jsonStr = val.substring(firstBrace, lastBrace + 1);
+                            // new Function é mais seguro que eval, mas ainda poderoso. Usamos apenas se o regex falhar.
+                            const fn = new Function("return " + jsonStr);
+                            const obj = fn();
+                            if(obj.apiKey) parsed = obj;
                         }
-                    }
-
-                    if (!parsed || !parsed.apiKey || !parsed.projectId) {
-                        throw new Error("Não consegui encontrar 'apiKey' ou 'projectId'.");
-                    }
-                    
-                    localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
-                    
-                    // Visual feedback before reload
-                    const statusEl = document.getElementById('cloud-config-status');
-                    if(statusEl) statusEl.innerHTML = `<span class="text-green-600 font-bold">Configuração salva! Reiniciando...</span>`;
-                    
-                    setTimeout(() => location.reload(), 1000);
-                    
-                } catch (e) {
-                    alert("Erro ao ler configuração: " + e.message + "\n\nTente copiar APENAS as linhas dentro das chaves { ... } no site do Firebase.");
+                    } catch(e) { console.log("Fallback parse failed", e); }
                 }
+
+                // 4. Validação Crítica
+                if (!parsed.apiKey || !parsed.projectId) {
+                    alert("ERRO: Não foi possível identificar a 'apiKey' ou 'projectId' no texto colado.\n\nPor favor, certifique-se de copiar todo o bloco de código do Firebase, especialmente a parte dentro das chaves { ... }.");
+                    return;
+                }
+
+                localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
+                
+                // 5. Sucesso
+                alert(`Configuração Identificada!\nProjeto: ${parsed.projectId}\n\nO aplicativo será recarregado para conectar.`);
+                location.reload();
             },
             
             clearCustomConfig() {
@@ -923,6 +919,7 @@
                 }, (error) => {
                     console.error("Error fetching data: ", error);
                     window.diag.dbConnected = false; 
+                    window.diag.errorMsg = error.message;
                     this.enableOfflineMode(); 
                 });
             },
