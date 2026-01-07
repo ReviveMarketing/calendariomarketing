@@ -42,11 +42,27 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Firebase SDKs -->
+    <!-- Tratamento de Erros Global (Script) -->
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            // Ignora erros de resize loop do navegador
+            if(msg.includes('ResizeObserver')) return;
+            
+            // Mostra alerta se falhar o carregamento do Firebase
+            if(msg.toLowerCase().includes('module') || msg.toLowerCase().includes('import')) {
+                const alerta = document.createElement('div');
+                alerta.style.cssText = "position:fixed;top:0;left:0;width:100%;background:red;color:white;padding:20px;z-index:9999;text-align:center;";
+                alerta.innerHTML = "<strong>Erro de Carregamento:</strong> O navegador não conseguiu carregar o Firebase. Verifique sua conexão com a internet ou firewall.";
+                document.body.appendChild(alerta);
+            }
+        };
+    </script>
+
+    <!-- Firebase SDKs (Versão Estável 10.13.1) -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
         // Variáveis de Diagnóstico Global
         window.diag = {
@@ -95,8 +111,6 @@
                         firebaseApp = initializeApp(activeConfig); // Tenta default
                     } catch(err) {
                         // Se já existe default, vamos tentar pegar a instância ou recriar
-                        // Para simplificar neste contexto single-file, assumimos reload de página para troca de config crítica
-                        // Mas tentaremos continuar
                         console.log("App já inicializado ou erro:", err);
                         return false; 
                     }
@@ -107,11 +121,10 @@
                     // Expor para o escopo global
                     window.db = db;
                     window.auth = auth;
-                    window.appId = appId; // Se usar config customizada, o appId é menos relevante para segurança, mas usado no caminho
+                    window.appId = appId; 
                     window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
                     
                     // Auth Logic
-                    // Se for config customizada, geralmente Anonymous Auth precisa estar ativado no Console do Firebase
                     if (window.diag.configSource === 'env' && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
@@ -458,7 +471,7 @@
                                 <p>
                                     Crie um projeto gratuito no <a href="https://console.firebase.google.com/" target="_blank" class="underline text-blue-500">Firebase Console</a>, ative o "Firestore Database" e "Authentication (Anonymous)", copie a configuração do app web e cole abaixo.
                                 </p>
-                                <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm p-3 font-mono text-xs" placeholder='Copie e cole o bloco de código do Firebase aqui'></textarea>
+                                <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm p-3 font-mono text-xs" placeholder='Cole aqui o código que começa com const firebaseConfig = { ... };'></textarea>
                                 <div class="flex gap-2">
                                     <button onclick="app.saveCustomConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                                         Salvar e Conectar
@@ -808,7 +821,10 @@
                 const input = document.getElementById('custom-config-input');
                 let val = input.value.trim();
                 
-                // Limpeza básica de aspas inteligentes ou formatação ruim
+                // Limpeza: remove <script>, remove 'const firebaseConfig =', remove ';' final, limpa aspas
+                val = val.replace(/<script[\s\S]*?>/gi, '').replace(/<\/script>/gi, '');
+                val = val.replace(/^\s*const\s+\w+\s*=\s*/, ''); // Remove 'const firebaseConfig ='
+                val = val.replace(/;\s*$/, ''); // Remove ';' do final
                 val = val.replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'");
 
                 if (!val) {
@@ -819,42 +835,38 @@
                 try {
                     let parsed = {};
                     
-                    // Estratégia 1: Tenta JSON.parse direto
+                    // Estratégia 1: Tenta JSON.parse direto (caso o usuário tenha colado só o objeto limpo)
                     try {
                         parsed = JSON.parse(val);
                     } catch (e) {
-                        // Estratégia 2: Regex para extrair campos chave individualmente
-                        // Isso funciona mesmo se o usuário colar lixo ao redor ou formato JS inválido
-                        const extract = (key) => {
-                            const match = val.match(new RegExp(`${key}["']?\\s*:\\s*["']([^"']+)["']`));
-                            return match ? match[1] : null;
-                        };
+                        // Estratégia 2: Se falhar, tenta achar o objeto JS usando Function (mais permissivo com chaves sem aspas)
+                        // Procura o bloco entre { e }
+                        const firstBrace = val.indexOf('{');
+                        const lastBrace = val.lastIndexOf('}');
                         
-                        parsed.apiKey = extract('apiKey');
-                        parsed.authDomain = extract('authDomain');
-                        parsed.projectId = extract('projectId');
-                        // Outros campos opcionais
-                        parsed.storageBucket = extract('storageBucket');
-                        parsed.messagingSenderId = extract('messagingSenderId');
-                        parsed.appId = extract('appId');
-
-                        // Se não achou pelo menos a API Key e Project ID, tenta a estratégia antiga de Function
-                        if (!parsed.apiKey || !parsed.projectId) {
-                             const firstBrace = val.indexOf('{');
-                             const lastBrace = val.lastIndexOf('}');
-                             if (firstBrace !== -1 && lastBrace !== -1) {
-                                let jsonCandidate = val.substring(firstBrace, lastBrace + 1);
-                                try {
-                                    parsed = new Function("return " + jsonCandidate)();
-                                } catch (e2) {
-                                    throw new Error("Formato não reconhecido.");
-                                }
-                             }
+                        if (firstBrace !== -1 && lastBrace !== -1) {
+                            const objectString = val.substring(firstBrace, lastBrace + 1);
+                            try {
+                                parsed = new Function("return " + objectString)();
+                            } catch (e2) {
+                                // Estratégia 3: Regex para extrair campos chave individualmente (último recurso)
+                                const extract = (key) => {
+                                    const match = val.match(new RegExp(`${key}["']?\\s*:\\s*["']([^"']+)["']`));
+                                    return match ? match[1] : null;
+                                };
+                                
+                                parsed.apiKey = extract('apiKey');
+                                parsed.authDomain = extract('authDomain');
+                                parsed.projectId = extract('projectId');
+                                parsed.storageBucket = extract('storageBucket');
+                                parsed.messagingSenderId = extract('messagingSenderId');
+                                parsed.appId = extract('appId');
+                            }
                         }
                     }
 
                     if (!parsed || !parsed.apiKey || !parsed.projectId) {
-                        throw new Error("Não consegui encontrar 'apiKey' ou 'projectId' no texto colado. Verifique se copiou o código correto.");
+                        throw new Error("Não consegui encontrar 'apiKey' ou 'projectId'.");
                     }
                     
                     localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
