@@ -112,7 +112,7 @@
 
             if (Object.keys(activeConfig).length === 0) {
                 console.log("Modo Offline: Nenhuma configuração encontrada.");
-                if(window.app) window.app.updateConnectionUI('local', 'Sem Configuração Firebase');
+                if(window.app) window.app.updateConnectionUI('missing_config', 'Sem Configuração Firebase');
                 return;
             }
 
@@ -257,7 +257,7 @@
             <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                 <!-- Status de Conexão -->
-                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition" onclick="initFirebaseConnection()" title="Clique para forçar reconexão">
+                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition" onclick="app.handleConnectionClick()" title="Clique para detalhes">
                     <span id="connection-status" class="flex items-center gap-1 text-gray-500 font-mono text-[10px]">
                         <i class="fa-solid fa-laptop"></i> Verificando...
                     </span>
@@ -547,7 +547,8 @@
                                  
                                  <div>
                                      <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Configuração Firebase (JSON)</label>
-                                     <textarea id="custom-config-input" rows="4" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-2 font-mono text-xs" placeholder='const firebaseConfig = { ... };'></textarea>
+                                     <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-2 font-mono text-xs" placeholder='Cole aqui o código que você copiou do Firebase. Ex: const firebaseConfig = { ... };'></textarea>
+                                     <p class="text-[10px] text-gray-400 mt-1">Vá no Firebase > Configurações do Projeto > Geral > Seus aplicativos e copie o bloco de código.</p>
                                  </div>
                                  
                                  <!-- Diagnostic Tool -->
@@ -563,7 +564,7 @@
                                          <strong>Nota Importante:</strong> Certifique-se que no console do Firebase:<br>
                                          1. "Authentication" > "Sign-in method" > "Anonymous" esteja ATIVADO.<br>
                                          2. "Firestore Database" esteja criado.<br>
-                                         3. Regras de segurança permitam leitura/escrita. Ex: <code>allow read, write: if true;</code> (para testes) ou <code>if request.auth != null;</code>
+                                         3. Regras de segurança permitam leitura/escrita. Ex: <code>allow read, write: if true;</code>
                                      </div>
                                  </div>
 
@@ -979,6 +980,13 @@
                 const dot = document.getElementById('status-dot');
                 const mobileDot = document.getElementById('mobile-status-dot');
                 
+                // Adiciona um handler de clique para configurações
+                if(el) {
+                    el.onclick = status === 'missing_config' 
+                        ? () => { app.navigate('backup'); document.getElementById('advanced-settings').classList.remove('hidden'); }
+                        : () => initFirebaseConnection();
+                }
+
                 if (status === 'success') {
                     // Mostra em qual sala está conectado
                     const isDefault = window.effectiveAppId === (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
@@ -989,24 +997,35 @@
                     
                     if(el) el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> ${count} Itens na Nuvem</span>`;
                     
-                    if(dot) { dot.classList.remove('bg-gray-300', 'bg-red-500'); dot.classList.add('bg-green-500'); }
-                    if(mobileDot) { mobileDot.classList.remove('bg-gray-300', 'bg-red-500'); mobileDot.classList.add('bg-green-500'); }
+                    if(dot) { dot.classList.remove('bg-gray-300', 'bg-red-500', 'bg-yellow-400'); dot.classList.add('bg-green-500'); }
+                    if(mobileDot) { mobileDot.classList.remove('bg-gray-300', 'bg-red-500', 'bg-yellow-400'); mobileDot.classList.add('bg-green-500'); }
                     
                     // Remove modo offline ao conectar com sucesso
                     this.offlineMode = false;
                 } else if (status === 'error') {
                     if(el) el.innerHTML = `<span class="text-red-600 font-bold flex items-center gap-1" title="${msg}"><i class="fa-solid fa-circle-exclamation"></i> ${msg}</span>`;
                     
-                    if(dot) { dot.classList.remove('bg-green-500', 'bg-gray-300'); dot.classList.add('bg-red-500'); }
-                    if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-gray-300'); mobileDot.classList.add('bg-red-500'); }
+                    if(dot) { dot.classList.remove('bg-green-500', 'bg-gray-300', 'bg-yellow-400'); dot.classList.add('bg-red-500'); }
+                    if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-gray-300', 'bg-yellow-400'); mobileDot.classList.add('bg-red-500'); }
+                } else if (status === 'missing_config') {
+                     if(el) el.innerHTML = `<span class="text-yellow-600 font-bold flex items-center gap-1 animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> ⚠️ Configurar Agora</span>`;
+                     
+                     if(dot) { dot.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-300'); dot.classList.add('bg-yellow-400'); }
+                     if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-300'); mobileDot.classList.add('bg-yellow-400'); }
                 } else {
                     if(el) el.innerHTML = `<span class="text-gray-500 flex items-center gap-1"><i class="fa-solid fa-laptop"></i> ${msg || 'Modo Local'}</span>`;
                     
-                    if(dot) { dot.classList.remove('bg-green-500', 'bg-red-500'); dot.classList.add('bg-gray-300'); }
-                    if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-red-500'); mobileDot.classList.add('bg-gray-300'); }
+                    if(dot) { dot.classList.remove('bg-green-500', 'bg-red-500', 'bg-yellow-400'); dot.classList.add('bg-gray-300'); }
+                    if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-red-500', 'bg-yellow-400'); mobileDot.classList.add('bg-gray-300'); }
                 }
             },
             
+            handleConnectionClick() {
+                // Wrapper para clique no container do status
+                const el = document.getElementById('connection-status');
+                if(el && el.onclick) el.onclick();
+            },
+
             // --- DIAGNOSTIC TOOL ---
             async runDiagnostics() {
                 const output = document.getElementById('diagnostic-output');
@@ -1020,6 +1039,7 @@
                 // 1. Check Config
                 if (Object.keys(activeConfig).length === 0) {
                     log('ERRO: Configuração do Firebase está vazia.', 'red');
+                    log('SOLUÇÃO: Cole a configuração JSON acima e clique em Salvar.', 'red');
                     return;
                 }
                 
@@ -1884,6 +1904,7 @@
 
                     if (parsed.apiKey && parsed.projectId) {
                         localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
+                        alert('Configuração salva com sucesso! Recarregando...');
                     } else {
                         alert("Não foi possível ler a configuração. Certifique-se de copiar o objeto { ... } completo do Firebase.");
                         return;
