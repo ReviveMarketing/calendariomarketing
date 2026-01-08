@@ -108,6 +108,7 @@
         async function initFirebaseConnection() {
             if (Object.keys(activeConfig).length === 0) {
                 console.log("Modo Offline: Nenhuma configuração encontrada.");
+                if(window.app) window.app.updateConnectionUI('local', 'Sem Config');
                 return;
             }
 
@@ -133,14 +134,21 @@
                 // Exporta para uso global no app
                 window.db = db;
                 window.auth = auth;
-                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query };
+                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query, signInAnonymously }; // Adicionado signInAnonymously
 
                 // Autenticação
                 let userCredential;
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     userCredential = await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    userCredential = await signInAnonymously(auth);
+                    try {
+                        userCredential = await signInAnonymously(auth);
+                    } catch (authError) {
+                        console.error("Erro de Autenticação:", authError);
+                        // Propagate error to diagnostic UI if active
+                        if(window.app) window.app.lastAuthError = authError;
+                        throw authError;
+                    }
                 }
 
                 console.log(`Firebase conectado na sala: ${window.effectiveAppId}`);
@@ -156,9 +164,11 @@
                 
                 if (error.code === 'auth/operation-not-allowed') friendlyMsg = "Auth Anônima Desativada";
                 else if (error.code === 'auth/invalid-api-key') friendlyMsg = "API Key Inválida";
-                else if (error.message.includes('project-id')) friendlyMsg = "Project ID Inválido";
+                else if (error.code === 'auth/project-not-found') friendlyMsg = "Projeto Não Encontrado";
+                else if (error.message && error.message.includes('project-id')) friendlyMsg = "Project ID Inválido";
                 
                 if(window.app) {
+                    window.app.lastConnectionError = error;
                     window.app.updateConnectionUI('error', friendlyMsg);
                 }
             }
@@ -487,11 +497,18 @@
 
                     <!-- Cloud Debugger -->
                     <div class="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-8">
-                         <div class="flex items-center gap-3 mb-4">
-                             <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-                                 <i class="fa-solid fa-share-nodes"></i>
+                         <div class="flex items-center justify-between mb-4">
+                             <div class="flex items-center gap-3">
+                                 <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+                                     <i class="fa-solid fa-share-nodes"></i>
+                                 </div>
+                                 <h3 class="font-bold text-lg">Compartilhar Projeto</h3>
                              </div>
-                             <h3 class="font-bold text-lg">Compartilhar Projeto</h3>
+                             
+                             <!-- Botão de Sincronização Forçada -->
+                             <button onclick="app.forceSync()" title="Forçar envio/recebimento de dados" class="p-2 bg-white dark:bg-gray-700 rounded-full text-indigo-600 shadow-sm hover:rotate-180 transition-transform duration-500">
+                                <i class="fa-solid fa-sync"></i>
+                             </button>
                          </div>
                          
                          <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
@@ -525,8 +542,25 @@
                                      <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Configuração Firebase (JSON)</label>
                                      <textarea id="custom-config-input" rows="4" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-2 font-mono text-xs" placeholder='const firebaseConfig = { ... };'></textarea>
                                  </div>
+                                 
+                                 <!-- Diagnostic Tool -->
+                                 <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
+                                     <h4 class="font-bold text-xs uppercase mb-2">Ferramenta de Diagnóstico</h4>
+                                     <div id="diagnostic-output" class="text-xs font-mono text-gray-600 dark:text-gray-300 mb-2 min-h-[20px]">
+                                         Clique para testar a conexão...
+                                     </div>
+                                     <button onclick="app.runDiagnostics()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-bold transition">
+                                         Rodar Diagnóstico de Conexão
+                                     </button>
+                                     <div class="mt-2 text-[10px] text-gray-500">
+                                         <strong>Nota Importante:</strong> Certifique-se que no console do Firebase:<br>
+                                         1. "Authentication" > "Sign-in method" > "Anonymous" esteja ATIVADO.<br>
+                                         2. "Firestore Database" esteja criado.<br>
+                                         3. Regras de segurança permitam leitura/escrita. Ex: <code>allow read, write: if true;</code> (para testes) ou <code>if request.auth != null;</code>
+                                     </div>
+                                 </div>
 
-                                 <div class="flex flex-wrap gap-2">
+                                 <div class="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                                     <button onclick="app.saveCustomConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition text-xs">
                                         Salvar Manualmente
                                     </button>
@@ -738,6 +772,8 @@
             charts: { status: null, platform: null },
             pendingCompletionId: null,
             pendingNewItem: null,
+            lastAuthError: null,
+            lastConnectionError: null,
             quotes: [
                 "Fantástico! Mais uma meta alcançada!",
                 "Você está mandando muito bem!",
@@ -786,6 +822,14 @@
                 if(displayEl) displayEl.innerText = roomText;
                 if(mobileDisplayEl) mobileDisplayEl.innerText = `Sala: ${roomText.substring(0, 10)}...`;
 
+                // Check for pending migration
+                if (localStorage.getItem('pending_migration') === 'true') {
+                     localStorage.removeItem('pending_migration');
+                     this.showToast('Migrando dados...', 'Enviando para a nova sala.');
+                     // Wait for connection then upload
+                     setTimeout(() => this.migrateLocalToCloud(), 3000); 
+                }
+
                 // UI setup
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -822,14 +866,56 @@
                 
                 // Normaliza o código antes de usar
                 const code = normalizeRoomId(rawCode);
+                
+                // MIGRATION ASK
+                let shouldMigrate = false;
+                if (this.data.length > 0) {
+                     shouldMigrate = confirm("Você tem dados na tela atual. Deseja COPIAR esses dados para a sala '" + code + "'?");
+                }
 
                 if(confirm(`Entrar na sala "${code}"? O sistema será recarregado.`)) {
                     localStorage.setItem('custom_room_id', code);
+                    if(shouldMigrate) {
+                        localStorage.setItem('pending_migration', 'true');
+                    }
                     // Atualiza URL para refletir a nova sala
                     const newUrl = new URL(window.location);
                     newUrl.searchParams.set('room', code);
                     window.location.href = newUrl.toString(); // Força reload completo com novo URL
                 }
+            },
+
+            // --- DATA MIGRATION LOGIC ---
+            async migrateLocalToCloud() {
+                if (!window.firebaseOps || !window.db) {
+                     this.showToast('Erro Migração', 'Não conectado à nuvem.', false);
+                     return;
+                }
+                
+                let successCount = 0;
+                const targetId = window.effectiveAppId;
+                
+                for (const item of this.data) {
+                    try {
+                        await window.firebaseOps.setDoc(
+                           window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts', item.id), 
+                           item
+                        );
+                        successCount++;
+                    } catch (e) {
+                        console.warn("Erro ao migrar item:", item.id, e);
+                    }
+                }
+                
+                if(successCount > 0) {
+                    this.showToast('Migração Concluída', `${successCount} itens enviados para a sala.`);
+                }
+            },
+            
+            forceSync() {
+                 if(confirm("Deseja reenviar todos os dados locais para a nuvem da sala atual? Isso garante que tudo que você vê está salvo.")) {
+                     this.migrateLocalToCloud();
+                 }
             },
 
             // --- FUNÇÃO DE COMPARTILHAMENTO ---
@@ -841,6 +927,13 @@
                 // Se estiver no padrão, gera uma nova sala
                 if (roomId === defaultId) {
                     roomId = 'proj-' + Math.random().toString(36).substring(2, 7).toLowerCase();
+                    
+                    // Auto-migrate flag if we have data
+                    if (this.data.length > 0) {
+                         // Implicitly migrate for user convenience when creating a share link
+                         localStorage.setItem('pending_migration', 'true');
+                    }
+
                     localStorage.setItem('custom_room_id', roomId);
                     window.effectiveAppId = roomId;
                     
@@ -883,7 +976,10 @@
                     const isDefault = window.effectiveAppId === (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
                     const roomName = isDefault ? 'Padrão' : window.effectiveAppId;
                     
-                    el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> Nuvem Ativa</span>`;
+                    // Add item count indicator
+                    const count = this.data ? this.data.length : 0;
+                    
+                    el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> ${count} Itens na Nuvem</span>`;
                     // Remove modo offline ao conectar com sucesso
                     this.offlineMode = false;
                 } else if (status === 'error') {
@@ -893,6 +989,61 @@
                 }
             },
             
+            // --- DIAGNOSTIC TOOL ---
+            async runDiagnostics() {
+                const output = document.getElementById('diagnostic-output');
+                output.innerHTML = 'Iniciando diagnóstico...<br>';
+                
+                const log = (msg, color='gray') => {
+                    const colorClass = color === 'red' ? 'text-red-600 font-bold' : (color === 'green' ? 'text-green-600 font-bold' : 'text-gray-600');
+                    output.innerHTML += `<div class="${colorClass}">> ${msg}</div>`;
+                };
+
+                // 1. Check Config
+                if (!window.firebaseOps) {
+                    log('ERRO: SDK Firebase não carregado.', 'red');
+                    return;
+                }
+                log('SDK Firebase: OK', 'green');
+
+                // 2. Check Auth
+                if (!window.auth || !window.auth.currentUser) {
+                    log('Auth: Falhou. Usuário não logado.', 'red');
+                    if (this.lastAuthError) {
+                        log(`Detalhe Auth: ${this.lastAuthError.code || this.lastAuthError.message}`, 'red');
+                        if (this.lastAuthError.code === 'auth/operation-not-allowed') {
+                            log('SOLUÇÃO: Vá no Firebase Console > Authentication > Sign-in method e ative "Anonymous".', 'red');
+                        }
+                    } else if (this.lastConnectionError) {
+                         log(`Erro Geral: ${this.lastConnectionError.message}`, 'red');
+                    }
+                    return;
+                }
+                log(`Auth: OK (UID: ${window.auth.currentUser.uid.substring(0,5)}...)`, 'green');
+
+                // 3. Check Firestore Permission
+                log('Testando permissão de escrita no Firestore...', 'gray');
+                const targetId = window.effectiveAppId;
+                const testRef = window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', '_diagnostic_test_' + Date.now());
+                
+                try {
+                    await window.firebaseOps.setDoc(testRef, { test: true, timestamp: Date.now() });
+                    log('Firestore Escrita: OK', 'green');
+                    await window.firebaseOps.deleteDoc(testRef); // Clean up
+                    log('Diagnóstico Finalizado: Tudo parece correto.', 'green');
+                    alert("Sucesso! O sistema conseguiu ler e escrever no banco de dados.");
+                } catch (e) {
+                    log(`ERRO Firestore: ${e.code}`, 'red');
+                    if (e.code === 'permission-denied') {
+                         log('SOLUÇÃO: Suas regras de segurança (Firestore Rules) estão bloqueando. Certifique-se que o banco de dados foi criado e as regras permitem leitura/escrita.', 'red');
+                    } else if (e.code === 'unavailable') {
+                        log('SOLUÇÃO: Verifique sua conexão com a internet ou se o serviço do Firebase está offline.', 'red');
+                    } else {
+                        log(`Detalhe: ${e.message}`, 'red');
+                    }
+                }
+            },
+
             setupRealtimeListener() {
                 if (!window.firebaseOps || !window.db) return;
                 const { collection, onSnapshot, query } = window.firebaseOps;
@@ -913,6 +1064,9 @@
                         this.data = cloudData;
                         this.saveLocal();
                         this.refreshCurrentView();
+                        
+                        // Update UI counter
+                        this.updateConnectionUI('success', 'Nuvem Ativa');
                         
                     }, (error) => {
                         console.warn("Realtime error:", error);
