@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MarketingPlanner - Gestão de Conteúdo</title>
+    <title>MarketingPlanner - Gestão 360º</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -20,10 +20,18 @@
                         instagram: '#C13584',
                         youtube: '#FF0000',
                         tiktok: '#000000',
-                        linkedin: '#0077b5'
+                        linkedin: '#0077b5',
+                        meta: '#0668E1',
+                        google: '#4285F4'
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
                     },
                     animation: {
-                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
                     }
                 }
             }
@@ -39,13 +47,17 @@
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Tratamento de Erros VISÍVEL -->
+    <!-- Tratamento de Erros -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
             if (msg.toLowerCase().includes('script error')) return false;
@@ -62,17 +74,11 @@
 
     <!-- Lógica Principal -->
     <script>
-        // --- GERENCIAMENTO DE CONFIGURAÇÃO E SALAS ---
-        
-        // Função auxiliar para normalizar IDs de sala (remove espaços, acentos, caixa baixa)
         function normalizeRoomId(id) {
             if(!id) return null;
-            return id.toString().trim().toLowerCase()
-                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-                .replace(/\s+/g, '-'); // Troca espaços por hífens
+            return id.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-'); 
         }
 
-        // 1. Configuração do Firebase (AGORA AUTOMÁTICA)
         const hardcodedConfig = {
             apiKey: "AIzaSyCWNsCe0-JHNBMPgtmc56nHw4-8a1DgoH4",
             authDomain: "marketingplanner-8adc3.firebaseapp.com",
@@ -85,104 +91,63 @@
 
         let envConfig = null;
         try { if (typeof __firebase_config !== 'undefined') envConfig = JSON.parse(__firebase_config); } catch (e) {}
-
         let customConfig = null;
-        try {
-            const stored = localStorage.getItem('custom_firebase_config');
-            if (stored) customConfig = JSON.parse(stored);
-        } catch (e) {}
-
-        // Prioridade: Config Manual > Ambiente > Hardcoded (Sua config)
+        try { const stored = localStorage.getItem('custom_firebase_config'); if (stored) customConfig = JSON.parse(stored); } catch (e) {}
         let activeConfig = customConfig || envConfig || hardcodedConfig;
 
-        // 2. ID da Sala (Sync ID) via URL ou LocalStorage
         const defaultAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        
-        // Lógica de Detecção da Sala (Prioridade: URL > LocalStorage > Default)
         const urlParams = new URLSearchParams(window.location.search);
         let rawUrlRoom = urlParams.get('room');
         let rawLocalRoom = localStorage.getItem('custom_room_id');
-
         let urlRoomId = normalizeRoomId(rawUrlRoom);
         let localRoomId = normalizeRoomId(rawLocalRoom);
 
-        // Se veio link com sala, atualiza o local imediatamente
         if (urlRoomId && urlRoomId !== localRoomId) {
             localRoomId = urlRoomId;
             localStorage.setItem('custom_room_id', urlRoomId);
         }
-
-        // O "effectiveAppId" é a chave da "Sala".
         window.effectiveAppId = localRoomId || defaultAppId;
 
-        // --- SISTEMA DE CONEXÃO DINÂMICA ---
         async function initFirebaseConnection() {
-            // Feedback visual imediato
             const statusEl = document.getElementById('connection-status');
             if(statusEl) statusEl.innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> Iniciando...</span>';
 
             if (Object.keys(activeConfig).length === 0) {
-                console.log("Modo Offline: Nenhuma configuração encontrada.");
-                if(window.app) window.app.updateConnectionUI('missing_config', 'Sem Configuração Firebase');
+                if(window.app) window.app.updateConnectionUI('missing_config', 'Sem Configuração');
                 return;
             }
 
             try {
-                // Importação Dinâmica
                 const { initializeApp, getApps, getApp } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js");
                 const { getAuth, signInAnonymously, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js");
-                const { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js");
+                const { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js");
 
-                let firebaseApp;
-                if (getApps().length === 0) {
-                    firebaseApp = initializeApp(activeConfig);
-                } else {
-                    firebaseApp = getApp();
-                }
-
+                let firebaseApp = getApps().length === 0 ? initializeApp(activeConfig) : getApp();
                 const auth = getAuth(firebaseApp);
                 const db = getFirestore(firebaseApp);
 
-                // Exporta para uso global no app
                 window.db = db;
                 window.auth = auth;
-                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc, query, signInAnonymously };
+                window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, query, signInAnonymously };
 
-                // Autenticação
                 if(statusEl) statusEl.innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> Autenticando...</span>';
                 
-                let userCredential;
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    userCredential = await signInWithCustomToken(auth, __initial_auth_token);
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
-                    try {
-                        userCredential = await signInAnonymously(auth);
-                    } catch (authError) {
-                        console.error("Erro de Autenticação:", authError);
-                        if(window.app) window.app.lastAuthError = authError;
-                        throw authError; // Relança para cair no catch global
-                    }
+                    await signInAnonymously(auth);
                 }
 
-                console.log(`Firebase conectado na sala: ${window.effectiveAppId}`);
-                
+                console.log(`Conectado: ${window.effectiveAppId}`);
                 if(window.app) {
                     window.app.updateConnectionUI('success', 'Nuvem Conectada');
                     window.app.setupRealtimeListener();
                 }
 
             } catch (error) {
-                console.error("Falha na conexão dinâmica:", error);
-                let friendlyMsg = "Erro Conexão";
-                
-                if (error.code === 'auth/operation-not-allowed') friendlyMsg = "Auth Anônima Desativada";
-                else if (error.code === 'auth/invalid-api-key') friendlyMsg = "API Key Inválida";
-                else if (error.code === 'auth/project-not-found') friendlyMsg = "Projeto Não Encontrado";
-                else if (error.message && error.message.includes('project-id')) friendlyMsg = "Project ID Inválido";
-                
+                console.error("Erro Conexão:", error);
                 if(window.app) {
-                    window.app.lastConnectionError = error;
-                    window.app.updateConnectionUI('error', friendlyMsg);
+                    window.app.updateConnectionUI('error', 'Erro Conexão');
                 }
             }
         }
@@ -198,431 +163,288 @@
         .dark .fc-theme-standard td, .dark .fc-theme-standard th { border-color: #334155; }
         .fc-day-today { background-color: #f1f5f9 !important; }
         .dark .fc-day-today { background-color: #1e293b !important; }
-        .fc-event { cursor: pointer; border: none; }
-        .fc-toolbar-title { font-size: 1.25rem !important; font-weight: 600; }
         .fc-button-primary { background-color: #4F46E5 !important; border-color: #4F46E5 !important; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200">
 
-    <!-- Global Error Banner -->
     <div id="global-error-banner" class="hidden bg-red-600 text-white p-3 text-center text-sm font-bold sticky top-0 z-[100] shadow-lg"></div>
 
     <div class="flex h-screen overflow-hidden">
         
         <!-- Sidebar -->
         <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col z-10">
-            <!-- LOGO AREA -->
             <div class="p-6 flex flex-col items-center justify-center border-b border-gray-200 dark:border-gray-700 text-center relative">
-                <!-- Status Dot -->
-                <div id="status-dot" class="absolute top-4 right-4 w-3 h-3 rounded-full bg-gray-300" title="Status da Conexão"></div>
+                <div id="status-dot" class="absolute top-4 right-4 w-3 h-3 rounded-full bg-gray-300" title="Status"></div>
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white tracking-tight leading-tight">ReVive Assessoria</h1>
+                <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mt-1">Gestão 360º</span>
                 
-                <h1 class="text-xl font-bold text-gray-900 dark:text-white tracking-tight leading-tight">
-                    ReVive Assessoria
-                </h1>
-                <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mt-1">
-                    Plano de MKT
-                </span>
-                
-                <!-- Room Display -->
                 <div class="mt-4 w-full">
-                    <div class="text-[10px] uppercase text-gray-500 font-bold mb-1 text-center">Código da Sala Atual</div>
-                    <div onclick="app.shareLink()" class="px-2 py-2 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 rounded text-sm font-mono font-bold text-indigo-700 dark:text-indigo-300 w-full text-center cursor-pointer hover:bg-indigo-200 transition group relative break-all" title="Clique para copiar link">
+                    <div class="text-[10px] uppercase text-gray-500 font-bold mb-1 text-center">Sala Atual</div>
+                    <div onclick="app.shareLink()" class="px-2 py-2 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 rounded text-sm font-mono font-bold text-indigo-700 dark:text-indigo-300 w-full text-center cursor-pointer hover:bg-indigo-200 transition" title="Copiar Link">
                         <span id="room-display-text">...</span>
-                        <i class="fa-solid fa-copy ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
                     </div>
-                    <div class="text-[9px] text-gray-400 mt-1 text-center italic">Certifique-se que o código é igual em ambos os dispositivos</div>
                 </div>
-
-                <!-- Manual Join Button -->
-                <button onclick="app.openJoinModal()" class="mt-2 text-xs text-gray-500 hover:text-indigo-600 underline">
-                    Trocar / Entrar em Sala Manualmente
-                </button>
+                <button onclick="app.openJoinModal()" class="mt-2 text-xs text-gray-500 hover:text-indigo-600 underline">Trocar Sala</button>
             </div>
 
             <nav class="flex-1 p-4 space-y-2">
-                <!-- Share Button Prominent -->
-                <button onclick="app.shareLink()" class="w-full flex items-center justify-center p-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold shadow-sm transition mb-4">
-                    <i class="fa-solid fa-share-nodes mr-2"></i> Copiar Link
-                </button>
-
-                <button onclick="app.navigate('dashboard')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-indigo-50 dark:hover:bg-gray-700 text-indigo-600 font-medium bg-indigo-50 dark:bg-gray-700" data-target="dashboard">
+                <button onclick="app.navigate('dashboard')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors font-medium" data-target="dashboard">
                     <i class="fa-solid fa-chart-pie w-6"></i> Dashboard
                 </button>
-                <button onclick="app.navigate('calendar')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" data-target="calendar">
+                <button onclick="app.navigate('traffic')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors font-medium text-emerald-600" data-target="traffic">
+                    <i class="fa-solid fa-rocket w-6"></i> Tráfego Pago
+                </button>
+                <button onclick="app.navigate('calendar')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors" data-target="calendar">
                     <i class="fa-solid fa-calendar-days w-6"></i> Calendário
                 </button>
-                <button onclick="app.navigate('activities')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" data-target="activities">
-                    <i class="fa-solid fa-list-check w-6"></i> Atividades
+                <button onclick="app.navigate('activities')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors" data-target="activities">
+                    <i class="fa-solid fa-list-check w-6"></i> Conteúdo
                 </button>
-                <button onclick="app.navigate('ideas')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300" data-target="ideas">
-                    <i class="fa-solid fa-lightbulb w-6"></i> Banco de Ideias
+                <button onclick="app.navigate('ideas')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors" data-target="ideas">
+                    <i class="fa-solid fa-lightbulb w-6"></i> Ideias
                 </button>
-                
-                <!-- Botão Backup -->
-                <button onclick="app.navigate('backup')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 text-xs">
-                    <i class="fa-solid fa-gear w-6"></i> Config Avançada
+                <button onclick="app.navigate('backup')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 text-xs" data-target="backup">
+                    <i class="fa-solid fa-gear w-6"></i> Config
                 </button>
             </nav>
 
-            <!-- Theme Area -->
             <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                <!-- Status de Conexão -->
-                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition" onclick="app.handleConnectionClick()" title="Clique para detalhes">
-                    <span id="connection-status" class="flex items-center gap-1 text-gray-500 font-mono text-[10px]">
-                        <i class="fa-solid fa-laptop"></i> Verificando...
-                    </span>
+                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 cursor-pointer" onclick="app.handleConnectionClick()">
+                    <span id="connection-status" class="flex items-center gap-1 text-gray-500 font-mono text-[10px]"><i class="fa-solid fa-laptop"></i> ...</span>
                 </div>
-                
                 <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                    <i class="fa-solid fa-moon dark:hidden mr-2"></i>
-                    <i class="fa-solid fa-sun hidden dark:inline mr-2 text-yellow-400"></i>
-                    <span class="text-sm font-medium">Tema</span>
+                    <i class="fa-solid fa-moon dark:hidden mr-2"></i><i class="fa-solid fa-sun hidden dark:inline mr-2 text-yellow-400"></i> <span class="text-sm">Tema</span>
                 </button>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto relative">
-            
+        <main class="flex-1 overflow-y-auto relative bg-gray-50 dark:bg-gray-900">
             <!-- Mobile Header -->
             <header class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center sticky top-0 z-20">
-                <div class="flex items-center gap-3">
-                    <div class="flex flex-col">
-                        <span class="font-bold text-gray-900 dark:text-white leading-tight">ReVive Assessoria</span>
-                        <!-- Mobile Room ID Display -->
-                        <span onclick="app.openJoinModal()" class="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded cursor-pointer truncate max-w-[150px]" id="mobile-room-display">
-                            Sala: Carregando...
-                        </span>
-                    </div>
+                <div class="flex flex-col">
+                    <span class="font-bold text-gray-900 dark:text-white">ReVive</span>
+                    <span id="mobile-room-display" class="text-[10px] text-indigo-500 font-mono">...</span>
                 </div>
                 <div class="flex gap-4">
-                    <!-- Status Icon Mobile -->
-                    <div id="mobile-status-dot" class="w-3 h-3 rounded-full bg-gray-300 mt-2" title="Status Conexão"></div>
-                    <button onclick="app.shareLink()" class="text-green-600"><i class="fa-solid fa-share-nodes text-xl"></i></button>
-                    <button onclick="app.toggleTheme()"><i class="fa-solid fa-circle-half-stroke"></i></button>
+                    <div id="mobile-status-dot" class="w-3 h-3 rounded-full bg-gray-300 mt-2"></div>
                     <button id="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
                 </div>
             </header>
 
-            <!-- Views Container -->
             <div class="p-4 md:p-8 max-w-7xl mx-auto pb-24">
 
                 <!-- 1. DASHBOARD VIEW -->
-                <div id="view-dashboard" class="view-section animate-fade-in">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold">Visão Geral</h2>
-                        <span class="text-sm text-gray-500 dark:text-gray-400" id="current-date"></span>
+                <div id="view-dashboard" class="view-section animate-fade-in hidden">
+                    
+                    <!-- GLOBAL DATE FILTER -->
+                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-col md:flex-row items-end md:items-center gap-4 justify-between">
+                        <div class="flex flex-col md:flex-row gap-4 w-full">
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Analisar de:</label>
+                                <input type="date" id="filter-start-date" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-2 text-sm">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Até:</label>
+                                <input type="date" id="filter-end-date" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-2 text-sm">
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <button onclick="app.applyDateFilter()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition h-[38px]">
+                                    <i class="fa-solid fa-filter mr-1"></i> Filtrar
+                                </button>
+                                <button onclick="app.setCurrentMonthFilter()" class="bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium transition h-[38px]">
+                                    Mês Atual
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- KPI Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8">
-                        <!-- Card 1: Taxa de Conclusão -->
-                        <div class="bg-gradient-to-br from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-md border border-indigo-500 flex flex-col justify-between relative overflow-hidden">
-                            <div class="z-10">
-                                <p class="text-indigo-100 text-sm font-medium mb-1">Taxa de Conclusão</p>
-                                <div class="flex items-baseline">
-                                    <h3 class="text-4xl font-bold" id="kpi-productivity">0%</h3>
-                                    <span class="ml-2 text-sm text-indigo-200">concluído</span>
-                                </div>
-                                <p class="text-xs text-indigo-200 mt-2" id="kpi-productivity-desc">Baseado em 0 tarefas concluídas</p>
-                            </div>
-                            <div class="absolute right-[-10px] bottom-[-10px] opacity-20 text-6xl">
-                                <i class="fa-solid fa-chart-line"></i>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Visão Geral</h2>
+                        <span class="text-xs font-mono bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded" id="current-filter-label">Filtro: Todo o Período</span>
+                    </div>
+
+                    <!-- KPI Cards Row 1: Financeiro -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <!-- Investimento Tráfego -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+                            <div class="absolute right-0 top-0 h-full w-2 bg-emerald-500"></div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Investimento em Tráfego</p>
+                            <h3 class="text-3xl font-bold mt-1 text-emerald-600 dark:text-emerald-400 truncate" id="kpi-traffic">R$ 0,00</h3>
+                            <div class="absolute right-4 bottom-4 opacity-10 group-hover:opacity-20 transition text-emerald-600 text-5xl">
+                                <i class="fa-solid fa-rocket"></i>
                             </div>
                         </div>
 
-                        <!-- Card 2: Total -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total de Tarefas</p>
-                                <h3 class="text-3xl font-bold mt-1 text-indigo-600" id="kpi-total">0</h3>
-                            </div>
-                            <div class="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-                                <i class="fa-solid fa-layer-group text-xl"></i>
-                            </div>
-                        </div>
-
-                        <!-- Card 3: Concluídas -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Concluídas</p>
-                                <h3 class="text-3xl font-bold mt-1 text-green-600" id="kpi-done">0</h3>
-                            </div>
-                            <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-300">
-                                <i class="fa-solid fa-check text-xl"></i>
+                        <!-- Custo Conteúdo -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+                            <div class="absolute right-0 top-0 h-full w-2 bg-indigo-500"></div>
+                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Custo Produção (Conteúdo)</p>
+                            <h3 class="text-3xl font-bold mt-1 text-indigo-600 dark:text-indigo-400 truncate" id="kpi-content-cost">R$ 0,00</h3>
+                            <div class="absolute right-4 bottom-4 opacity-10 group-hover:opacity-20 transition text-indigo-600 text-5xl">
+                                <i class="fa-solid fa-video"></i>
                             </div>
                         </div>
 
-                        <!-- Card 4: Pendentes -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Pendentes</p>
-                                <h3 class="text-3xl font-bold mt-1 text-yellow-600" id="kpi-pending">0</h3>
-                            </div>
-                            <div class="w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center text-yellow-600 dark:text-yellow-300">
-                                <i class="fa-solid fa-clock text-xl"></i>
+                        <!-- Investimento Total -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-xl shadow-md border border-gray-700 relative overflow-hidden">
+                            <p class="text-gray-400 text-sm font-medium">Investimento Total (Geral)</p>
+                            <h3 class="text-3xl font-bold mt-1 text-white truncate" id="kpi-total-invest">R$ 0,00</h3>
+                            <div class="absolute right-4 bottom-4 opacity-20 text-white text-5xl">
+                                <i class="fa-solid fa-scale-balanced"></i>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Card 5: Atrasadas -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Atrasadas</p>
-                                <h3 class="text-3xl font-bold mt-1 text-red-600" id="kpi-late">0</h3>
-                            </div>
-                            <div class="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center text-red-600 dark:text-red-300">
-                                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
-                            </div>
+                    <!-- KPI Cards Row 2: Produtividade -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+                            <p class="text-xs text-gray-500 uppercase font-bold">Total Posts</p>
+                            <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="kpi-total">0</h3>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+                            <p class="text-xs text-gray-500 uppercase font-bold">Concluídos</p>
+                            <h3 class="text-2xl font-bold text-green-600" id="kpi-done">0</h3>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+                            <p class="text-xs text-gray-500 uppercase font-bold">Pendentes</p>
+                            <h3 class="text-2xl font-bold text-yellow-600" id="kpi-pending">0</h3>
+                        </div>
+                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
+                            <p class="text-xs text-gray-500 uppercase font-bold">Tx. Conclusão</p>
+                            <h3 class="text-2xl font-bold text-indigo-600" id="kpi-rate">0%</h3>
                         </div>
                     </div>
 
                     <!-- Charts Area -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <!-- Chart 1: Status -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold mb-4">Status das Publicações</h3>
-                            <div class="relative h-64">
-                                <canvas id="statusChart"></canvas>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                        <!-- Chart 1: Traffic Breakdown (NOVO) -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-1">
+                            <h3 class="text-lg font-semibold mb-4 text-emerald-600 dark:text-emerald-400">Investimento por Plataforma</h3>
+                            <div class="relative h-48">
+                                <canvas id="trafficChart"></canvas>
                             </div>
                         </div>
 
-                        <!-- Chart 2: Platform -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold mb-4">Volume por Canal</h3>
-                            <div class="relative h-64">
+                        <!-- Chart 2: Content Breakdown -->
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-1">
+                            <h3 class="text-lg font-semibold mb-4 text-indigo-600 dark:text-indigo-400">Volume de Conteúdo</h3>
+                            <div class="relative h-48">
                                 <canvas id="platformChart"></canvas>
+                            </div>
+                        </div>
+
+                         <!-- Chart 3: Status -->
+                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-1">
+                            <h3 class="text-lg font-semibold mb-4">Status de Produção</h3>
+                            <div class="relative h-48">
+                                <canvas id="statusChart"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. CALENDAR VIEW -->
-                <div id="view-calendar" class="view-section hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold">Calendário Editorial</h2>
-                        <button onclick="app.openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow transition flex items-center">
-                            <i class="fa-solid fa-plus mr-2"></i> Novo Post
-                        </button>
+                <!-- 2. TRAFFIC VIEW (NOVO) -->
+                <div id="view-traffic" class="view-section hidden">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestão de Tráfego Pago</h2>
+                            <p class="text-sm text-gray-500">Controle seus investimentos em Ads.</p>
+                        </div>
+                        <div class="flex gap-2">
+                             <button onclick="app.exportTrafficPDF()" class="px-4 py-2 text-sm font-medium text-emerald-600 bg-white border border-emerald-200 rounded-lg hover:bg-emerald-50 dark:bg-gray-700 dark:text-emerald-400 dark:border-gray-600 shadow-sm transition">
+                                <i class="fa-solid fa-file-pdf mr-2"></i> Relatório Ads
+                            </button>
+                            <button onclick="app.openTrafficModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow transition flex items-center">
+                                <i class="fa-solid fa-plus mr-2"></i> Adicionar Investimento
+                            </button>
+                        </div>
                     </div>
+
+                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 uppercase text-xs">
+                                    <tr>
+                                        <th class="p-4">Data</th>
+                                        <th class="p-4">Plataforma</th>
+                                        <th class="p-4">Pagamento</th>
+                                        <th class="p-4">Valor</th>
+                                        <th class="p-4">Notas</th>
+                                        <th class="p-4 text-right">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="traffic-list" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                            </table>
+                        </div>
+                        <div id="traffic-empty" class="hidden p-10 text-center text-gray-500">
+                            <i class="fa-solid fa-sack-dollar text-4xl mb-3 opacity-30"></i>
+                            <p>Nenhum investimento registrado.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. CALENDAR VIEW -->
+                <div id="view-calendar" class="view-section hidden">
                     <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                         <div id='calendar'></div>
                     </div>
                 </div>
 
-                <!-- 3. ACTIVITIES VIEW (LIST) -->
+                <!-- 4. ACTIVITIES VIEW -->
                 <div id="view-activities" class="view-section hidden">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                        <h2 class="text-2xl font-bold">Gestão de Atividades</h2>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold">Produção de Conteúdo</h2>
                         <div class="flex gap-2">
-                            <button onclick="app.exportCSV()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600">
-                                <i class="fa-solid fa-file-csv mr-2"></i> Exportar
+                             <button onclick="app.exportContentPDF()" class="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 dark:bg-gray-700 dark:text-red-400 dark:border-gray-600 shadow-sm transition">
+                                <i class="fa-solid fa-file-pdf mr-2"></i> PDF Conteúdo
                             </button>
                             <button onclick="app.openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow transition flex items-center">
                                 <i class="fa-solid fa-plus mr-2"></i> Novo Post
                             </button>
                         </div>
                     </div>
-
-                    <!-- Filters -->
-                    <div class="flex gap-4 mb-6 overflow-x-auto pb-2">
-                        <select id="filter-platform" onchange="app.renderActivities()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="all">Todos os Canais</option>
-                            <option value="instagram">Instagram</option>
-                            <option value="youtube">YouTube</option>
-                            <option value="tiktok">TikTok</option>
-                            <option value="others">Outros (Eventos, etc)</option>
-                        </select>
-                        <select id="filter-status" onchange="app.renderActivities()" class="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                            <option value="all">Todos os Status</option>
-                            <option value="pending">Pendente</option>
-                            <option value="done">Concluído</option>
-                        </select>
-                    </div>
-
-                    <!-- List -->
+                    
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 uppercase text-xs">
-                                    <tr>
-                                        <th class="p-4 font-semibold">Status</th>
-                                        <th class="p-4 font-semibold">Data Planejada</th>
-                                        <th class="p-4 font-semibold">Concluído em</th>
-                                        <th class="p-4 font-semibold">Rede / Tipo</th>
-                                        <th class="p-4 font-semibold">Título</th>
-                                        <th class="p-4 font-semibold text-right">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="activities-list" class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <!-- JS renders items here -->
-                                </tbody>
-                            </table>
-                        </div>
-                        <div id="loading-state" class="hidden p-8 text-center text-indigo-500">
-                            <i class="fa-solid fa-circle-notch fa-spin text-4xl mb-3"></i>
-                            <p>Carregando dados...</p>
-                        </div>
-                        <div id="empty-state" class="hidden p-8 text-center text-gray-500">
-                            <i class="fa-solid fa-cloud text-4xl mb-3 opacity-30"></i>
-                            <p>Nenhum dado encontrado. Comece adicionando um post!</p>
-                        </div>
+                        <table class="w-full text-left">
+                            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-xs">
+                                <tr>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4">Data</th>
+                                    <th class="p-4">Canal</th>
+                                    <th class="p-4">Título</th>
+                                    <th class="p-4 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activities-list" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                        </table>
                     </div>
                 </div>
 
-                <!-- 4. IDEAS VIEW -->
+                <!-- 5. IDEAS VIEW -->
                 <div id="view-ideas" class="view-section hidden">
-                    <div class="mb-6">
-                        <h2 class="text-2xl font-bold mb-2">Banco de Ideias</h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Registre insights rápidos. Isso não afeta suas métricas ou calendário.</p>
+                    <h2 class="text-2xl font-bold mb-4">Banco de Ideias</h2>
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="new-idea-text" placeholder="Nova ideia..." class="flex-1 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 border">
+                        <button onclick="app.addIdea()" class="bg-indigo-600 text-white px-4 rounded-lg">Adicionar</button>
                     </div>
-
-                    <!-- Add Idea Form -->
-                    <div class="bg-indigo-50 dark:bg-gray-700/50 p-4 rounded-xl border border-indigo-100 dark:border-gray-600 mb-6 flex flex-col md:flex-row gap-3 items-end">
-                        <div class="flex-grow w-full">
-                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Nova Ideia</label>
-                            <input type="text" id="new-idea-text" placeholder="Ex: Fazer reels sobre bastidores..." class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border">
-                        </div>
-                        <div class="w-full md:w-40">
-                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Data (Opcional)</label>
-                            <input type="date" id="new-idea-date" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border">
-                        </div>
-                        <button onclick="app.addIdea()" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-2.5 rounded-lg transition shadow-sm flex items-center justify-center">
-                            <i class="fa-solid fa-plus mr-2"></i> Adicionar
-                        </button>
-                    </div>
-
-                    <!-- Ideas List -->
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div id="ideas-list" class="divide-y divide-gray-100 dark:divide-gray-700">
-                            <!-- JS renders ideas here -->
-                        </div>
-                        <div id="ideas-empty" class="hidden p-8 text-center text-gray-500">
-                            <i class="fa-regular fa-lightbulb text-4xl mb-3 opacity-30"></i>
-                            <p>Nenhuma ideia registrada ainda.</p>
-                        </div>
-                    </div>
+                    <div id="ideas-list" class="space-y-2"></div>
                 </div>
 
-                <!-- 5. BACKUP & CLOUD VIEW (REDESIGNED) -->
+                <!-- 6. CONFIG VIEW -->
                 <div id="view-backup" class="view-section hidden">
-                    <div class="mb-6">
-                        <h2 class="text-2xl font-bold mb-2">Configuração de Nuvem e Sincronização</h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Compartilhe o código da sala para convidar pessoas.
-                        </p>
-                    </div>
+                    <h2 class="text-2xl font-bold mb-4">Configurações Avançadas</h2>
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
+                        <label class="block text-sm font-bold mb-2">Configuração JSON do Firebase</label>
+                        <textarea id="custom-config-input" class="w-full p-3 border rounded-lg font-mono text-xs mb-4 dark:bg-gray-900 dark:border-gray-700" rows="6" placeholder='cole o const firebaseConfig = { ... } aqui'></textarea>
+                        
+                        <label class="block text-sm font-bold mb-2">ID da Sala (Manual)</label>
+                        <input type="text" id="custom-room-id-input" class="w-full p-2 border rounded-lg mb-4 dark:bg-gray-900 dark:border-gray-700">
 
-                    <!-- Cloud Debugger -->
-                    <div class="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-xl border border-indigo-200 dark:border-indigo-800 mb-8">
-                         <div class="flex items-center justify-between mb-4">
-                             <div class="flex items-center gap-3">
-                                 <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-                                     <i class="fa-solid fa-share-nodes"></i>
-                                 </div>
-                                 <h3 class="font-bold text-lg">Compartilhar Projeto</h3>
-                             </div>
-                             
-                             <!-- Botão de Sincronização Forçada -->
-                             <button onclick="app.forceSync()" title="Forçar envio/recebimento de dados" class="p-2 bg-white dark:bg-gray-700 rounded-full text-indigo-600 shadow-sm hover:rotate-180 transition-transform duration-500">
-                                <i class="fa-solid fa-sync"></i>
-                             </button>
-                         </div>
-                         
-                         <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                             O jeito mais seguro de conectar é usando o código abaixo. Se o link falhar, a pessoa pode clicar em "Trocar Sala" no menu e digitar este código.
-                         </p>
-
-                         <!-- Manual Join Button -->
-                         <button onclick="app.openJoinModal()" class="w-full md:w-auto mb-4 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-6 py-3 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-arrow-right-to-bracket"></i> Digitar Código de Outra Sala
-                        </button>
-
-                         <button onclick="app.shareLink()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 mb-6">
-                             <i class="fa-solid fa-link"></i> Copiar Link de Convite
-                         </button>
-
-                         <!-- Manual Override (Advanced) -->
-                         <div class="pt-4 border-t border-indigo-200 dark:border-indigo-800">
-                             <div onclick="document.getElementById('advanced-settings').classList.toggle('hidden')" class="flex items-center gap-2 cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-2">
-                                 <i class="fa-solid fa-chevron-down"></i> Configurações Avançadas (Sala e API)
-                             </div>
-                             
-                             <div id="advanced-settings" class="hidden mt-4 space-y-4">
-                                 <div>
-                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">ID da Sala (Manual)</label>
-                                     <div class="flex gap-2">
-                                        <input type="text" id="custom-room-id-input" class="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 text-sm" placeholder="Ex: projeto-marketing-joao">
-                                     </div>
-                                 </div>
-                                 
-                                 <div>
-                                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Configuração Firebase (JSON)</label>
-                                     <textarea id="custom-config-input" rows="6" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 p-2 font-mono text-xs" placeholder='Cole aqui o código que você copiou do Firebase. Ex: const firebaseConfig = { ... };'></textarea>
-                                     <p class="text-[10px] text-gray-400 mt-1">Vá no Firebase > Configurações do Projeto > Geral > Seus aplicativos e copie o bloco de código.</p>
-                                 </div>
-                                 
-                                 <!-- Diagnostic Tool -->
-                                 <div class="p-3 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700">
-                                     <h4 class="font-bold text-xs uppercase mb-2">Ferramenta de Diagnóstico</h4>
-                                     <div id="diagnostic-output" class="text-xs font-mono text-gray-600 dark:text-gray-300 mb-2 min-h-[20px]">
-                                         Clique para testar a conexão...
-                                     </div>
-                                     <button onclick="app.runDiagnostics()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs font-bold transition">
-                                         Rodar Diagnóstico de Conexão
-                                     </button>
-                                     <div class="mt-2 text-[10px] text-gray-500">
-                                         <strong>Nota Importante:</strong> Certifique-se que no console do Firebase:<br>
-                                         1. "Authentication" > "Sign-in method" > "Anonymous" esteja ATIVADO.<br>
-                                         2. "Firestore Database" esteja criado.<br>
-                                         3. Regras de segurança permitam leitura/escrita. Ex: <code>allow read, write: if true;</code>
-                                     </div>
-                                 </div>
-
-                                 <div class="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <button onclick="app.saveCustomConfig()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition text-xs">
-                                        Salvar Manualmente
-                                    </button>
-                                    <button onclick="app.clearCustomConfig()" class="bg-white dark:bg-gray-700 text-red-600 border border-red-200 dark:border-red-800 px-4 py-2 rounded-lg font-bold shadow-sm transition hover:bg-red-50 text-xs">
-                                        Resetar
-                                    </button>
-                                 </div>
-                             </div>
-                         </div>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="border-t border-gray-200 dark:border-gray-700 my-8 relative">
-                        <span class="absolute top-[-10px] left-1/2 transform -translate-x-1/2 bg-gray-50 dark:bg-gray-900 px-3 text-xs text-gray-400 uppercase tracking-widest">Opções Offline</span>
-                    </div>
-
-                    <!-- Manual Backup Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <!-- Backup Card (DOWNLOAD) -->
-                        <div class="bg-green-50 dark:bg-green-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800 shadow-sm flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-300 shrink-0">
-                                <i class="fa-solid fa-file-csv text-xl"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-green-900 dark:text-green-100">Baixar Backup (Planilha)</h3>
-                                <button onclick="app.backupData()" class="text-xs text-green-700 dark:text-green-400 hover:underline mt-1 font-bold">
-                                    Clique para baixar
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Restore Card (UPLOAD) -->
-                        <div class="bg-blue-50 dark:bg-blue-900/20 p-6 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm flex items-center gap-4">
-                            <div class="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-300 shrink-0">
-                                <i class="fa-solid fa-upload text-xl"></i>
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-base text-blue-900 dark:text-blue-100">Restaurar Backup</h3>
-                                <label class="text-xs text-blue-700 dark:text-blue-400 hover:underline mt-1 font-bold cursor-pointer">
-                                    Selecionar arquivo
-                                    <input type="file" id="restore-file-input" accept=".json,.csv" class="hidden" onchange="app.restoreData(this)">
-                                </label>
-                            </div>
+                        <div class="flex gap-2">
+                            <button onclick="app.saveCustomConfig()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold">Salvar e Recarregar</button>
+                            <button onclick="app.clearCustomConfig()" class="bg-red-600 text-white px-4 py-2 rounded font-bold">Resetar Tudo</button>
                         </div>
                     </div>
                 </div>
@@ -631,193 +453,164 @@
         </main>
     </div>
 
-    <!-- MAIN FORM MODAL (Add/Edit) -->
-    <div id="post-modal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" onclick="app.closeModal()"></div>
-        <div class="fixed inset-0 z-10 overflow-y-auto">
-            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-200 dark:border-gray-700">
+    <!-- MODAL POST (Conteúdo) -->
+    <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
+        <div class="flex min-h-full items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg p-6">
+                <h3 class="text-lg font-bold mb-4 dark:text-white" id="modal-title">Novo Post</h3>
+                <form id="post-form" class="space-y-4">
+                    <input type="hidden" id="post-id">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Título</label>
+                        <input type="text" id="post-title" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Canal</label>
+                            <select id="post-platform" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                                <option value="instagram">Instagram</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="others">Outros</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Tipo</label>
+                            <select id="post-type" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                                <option value="post">Post</option>
+                                <option value="reels">Reels</option>
+                                <option value="stories">Stories</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="post-has-cost" onchange="document.getElementById('cost-group').classList.toggle('hidden')">
+                        <label for="post-has-cost" class="text-sm dark:text-gray-300">Tem Custo de Produção?</label>
+                    </div>
+                    <div id="cost-group" class="hidden">
+                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Valor (R$)</label>
+                         <input type="number" id="post-cost-value" step="0.01" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Data</label>
+                        <input type="date" id="post-date" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Status</label>
+                        <select id="post-status" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                            <option value="pending">Pendente</option>
+                            <option value="done">Concluído</option>
+                        </select>
+                    </div>
+                </form>
+                <div class="mt-6 flex justify-end gap-2">
+                    <button onclick="app.deletePost()" id="btn-delete" class="hidden text-red-600 hover:bg-red-50 px-3 py-2 rounded text-sm font-bold">Excluir</button>
+                    <button onclick="app.closeModal()" class="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-bold">Cancelar</button>
+                    <button onclick="app.savePost()" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL TRAFFIC -->
+    <div id="traffic-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeTrafficModal()">
+        <div class="flex min-h-full items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 border-t-4 border-emerald-500">
+                <h3 class="text-lg font-bold mb-4 dark:text-white">Investimento em Tráfego</h3>
+                <form id="traffic-form" class="space-y-4">
+                    <input type="hidden" id="traffic-id">
                     
-                    <div class="bg-white dark:bg-gray-800 px-4 pb-4 pt-5 sm:p-6 sm:pb-4 max-h-[80vh] overflow-y-auto">
-                        <div class="sm:flex sm:items-start w-full">
-                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                <h3 class="text-xl font-semibold leading-6 text-gray-900 dark:text-gray-100 mb-4" id="modal-title">Nova Postagem</h3>
-                                <form id="post-form" class="space-y-4">
-                                    <input type="hidden" id="post-id">
-                                    <input type="hidden" id="post-completed-date">
-                                    
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título / Nome</label>
-                                        <input type="text" id="post-title" required class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                                    </div>
+                    <div>
+                        <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Plataforma</label>
+                        <select id="traffic-platform" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                            <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
+                            <option value="google_ads">Google Ads / YouTube</option>
+                            <option value="tiktok_ads">TikTok Ads</option>
+                            <option value="linkedin_ads">LinkedIn Ads</option>
+                            <option value="other">Outra</option>
+                        </select>
+                    </div>
 
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Canal / Rede</label>
-                                            <select id="post-platform" onchange="app.toggleCostFields()" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                                                <option value="instagram">Instagram</option>
-                                                <option value="youtube">YouTube</option>
-                                                <option value="tiktok">TikTok</option>
-                                                <option value="others">Outros (Eventos, etc)</option>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-                                            <select id="post-type" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                                                <option value="post">Post (Feed)</option>
-                                                <option value="reels">Reels / Shorts / TikTok</option>
-                                                <option value="stories">Stories</option>
-                                                <option value="video">Vídeo Longo</option>
-                                                <option value="event">Evento Presencial</option>
-                                                <option value="email">E-mail Marketing</option>
-                                                <option value="other">Outro</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                    <div>
+                        <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Valor Investido (R$)</label>
+                        <input type="number" id="traffic-value" step="0.01" required class="w-full rounded border p-2 text-lg font-bold text-emerald-600 dark:bg-gray-700 dark:border-gray-600" placeholder="0.00">
+                    </div>
 
-                                    <!-- Campos de Custo (Ocultos por padrão) -->
-                                    <div id="cost-container" class="hidden p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                                        <div class="flex items-center mb-2">
-                                            <input id="post-has-cost" type="checkbox" onchange="app.toggleCostInput()" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
-                                            <label for="post-has-cost" class="ml-2 block text-sm text-gray-900 dark:text-gray-100 font-medium">Tem custo envolvido?</label>
-                                        </div>
-                                        <div id="cost-value-container" class="hidden mt-2">
-                                            <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Valor Estimado (R$)</label>
-                                            <input type="number" id="post-cost-value" step="0.01" placeholder="0,00" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Planejada</label>
-                                        <input type="date" id="post-date" required class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descrição / Detalhes</label>
-                                        <textarea id="post-desc" rows="3" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"></textarea>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                                        <select id="post-status" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border">
-                                            <option value="pending">Pendente</option>
-                                            <option value="in_progress">Em Andamento</option>
-                                            <option value="done">Concluído</option>
-                                        </select>
-                                    </div>
-                                </form>
-                            </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Data</label>
+                            <input type="date" id="traffic-date" required class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                        </div>
+                        <div>
+                            <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Forma Pagto</label>
+                            <select id="traffic-method" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                                <option value="credit_card">Cartão de Crédito</option>
+                                <option value="pix">PIX</option>
+                                <option value="boleto">Boleto</option>
+                                <option value="transfer">Transferência</option>
+                            </select>
                         </div>
                     </div>
-                    <div class="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <button type="button" id="btn-save-post" onclick="app.savePost()" class="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 sm:ml-3 sm:w-auto transition disabled:opacity-50 disabled:cursor-not-allowed">
-                            <i class="fa-solid fa-floppy-disk mr-2"></i> <span id="save-text">Salvar</span>
-                        </button>
-                        <button type="button" onclick="app.deletePost()" id="btn-delete" class="hidden inline-flex w-full justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 sm:ml-3 sm:w-auto transition">Excluir</button>
-                        <button type="button" onclick="app.closeModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-600 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto transition">Cancelar</button>
+
+                    <div>
+                        <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Notas / Detalhes</label>
+                        <input type="text" id="traffic-notes" placeholder="Ex: Campanha Dia das Mães" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
                     </div>
+                </form>
+                <div class="mt-6 flex justify-end gap-2">
+                    <button onclick="app.deleteTraffic()" id="btn-delete-traffic" class="hidden text-red-600 hover:bg-red-50 px-3 py-2 rounded text-sm font-bold">Excluir</button>
+                    <button onclick="app.closeTrafficModal()" class="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-bold">Cancelar</button>
+                    <button onclick="app.saveTraffic()" class="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700">Salvar Investimento</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- JOIN ROOM MODAL (MANUAL) -->
-    <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-gray-900 bg-opacity-80 transition-opacity backdrop-blur-sm" onclick="app.closeJoinModal()"></div>
-        <div class="fixed inset-0 z-10 overflow-y-auto">
-            <div class="flex min-h-full items-center justify-center p-4 text-center">
-                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:w-full sm:max-w-sm border border-indigo-500">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-center text-gray-900 dark:text-gray-100 mb-4">Entrar em uma Sala</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">Digite o código da sala que você quer acessar:</p>
-                        
-                        <input type="text" id="manual-room-input" placeholder="Ex: projeto-alpha-123" class="w-full text-center text-lg font-mono p-3 rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border uppercase">
-                        <p class="text-xs text-gray-400 mt-2 text-center">O código será convertido para minúsculo e sem espaços automaticamente.</p>
-                        
-                        <button type="button" onclick="app.confirmJoinRoom()" class="w-full mt-4 justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition">
-                            Entrar na Sala
-                        </button>
-                        <button type="button" onclick="app.closeJoinModal()" class="w-full mt-2 justify-center rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
+    <!-- JOIN ROOM MODAL -->
+    <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" onclick="if(event.target===this) app.closeJoinModal()">
+        <div class="flex min-h-full items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+                <h3 class="font-bold text-center mb-4 dark:text-white">Entrar em Sala</h3>
+                <input type="text" id="manual-room-input" placeholder="Código da Sala" class="w-full p-3 rounded border mb-4 text-center uppercase">
+                <button onclick="app.confirmJoinRoom()" class="w-full bg-indigo-600 text-white p-2 rounded font-bold">Entrar</button>
             </div>
-        </div>
-    </div>
-
-    <!-- COMPLETION DATE MODAL -->
-    <div id="completion-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="fixed inset-0 bg-gray-900 bg-opacity-80 transition-opacity backdrop-blur-sm"></div>
-        <div class="fixed inset-0 z-10 overflow-y-auto">
-            <div class="flex min-h-full items-center justify-center p-4 text-center">
-                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:w-full sm:max-w-sm border border-indigo-500 border-t-4">
-                    <div class="p-6">
-                        <div class="text-center">
-                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900 mb-4">
-                                <i class="fa-solid fa-flag-checkered text-green-600 dark:text-green-400 text-xl"></i>
-                            </div>
-                            <h3 class="text-lg font-bold leading-6 text-gray-900 dark:text-gray-100">Tarefa Concluída!</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Quando você finalizou esta atividade?</p>
-                            
-                            <div class="mt-4">
-                                <input type="date" id="completion-date-input" class="w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2 border text-center font-semibold">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-gray-700/50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                        <button type="button" onclick="app.confirmCompletion()" class="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 sm:ml-3 sm:w-auto transition">Confirmar</button>
-                        <button type="button" onclick="app.closeCompletionModal()" class="mt-3 inline-flex w-full justify-center rounded-md bg-white dark:bg-gray-600 px-3 py-2 text-sm font-semibold text-gray-900 dark:text-gray-100 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto transition">Cancelar</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- TOAST NOTIFICATION -->
-    <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-[70] flex items-center gap-3">
-        <i id="toast-icon" class="fa-solid fa-circle-check text-green-400 hidden"></i>
-        <div class="flex flex-col">
-            <span id="toast-msg" class="font-medium">Mensagem</span>
-            <span id="toast-sub" class="text-xs text-gray-300 hidden">Frase motivacional</span>
         </div>
     </div>
 
     <script>
         const app = {
             data: [],
-            calendarInstance: null,
-            offlineMode: true,
-            charts: { status: null, platform: null },
-            pendingCompletionId: null,
-            pendingNewItem: null,
-            lastAuthError: null,
-            lastConnectionError: null,
-            quotes: [
-                "Fantástico! Mais uma meta alcançada!",
-                "Você está mandando muito bem!",
-                "O sucesso é a soma de pequenos esforços!",
-                "Excelente! Continue com esse ritmo!",
-                "Tarefa derrubada! Quem é o próximo?",
-                "Marketing de resultados é isso aí!",
-                "Brilhante! Sua consistência é a chave.",
-                "Isso aí! Foco total nos objetivos.",
-                "Conquista desbloqueada! Parabéns!",
-                "Sua produtividade está on fire! 🔥"
-            ],
+            filterStartDate: null,
+            filterEndDate: null,
+            charts: {},
             
             init() {
-                // 1. CARREGAMENTO LOCAL
-                const localData = localStorage.getItem('marketingPlannerData_offline');
-                if (localData) {
-                    try {
-                        this.data = JSON.parse(localData);
-                    } catch(e) { this.data = []; }
-                } else {
-                    this.data = [];
-                }
+                // FIXED: Date handling to use LOCAL timezone instead of UTC to avoid "previous day" bugs in Brazil
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
                 
-                // Popula a textarea se houver config salva
+                // First day of current month local
+                const firstDay = new Date(year, month, 1);
+                // Last day of current month local
+                const lastDay = new Date(year, month + 1, 0);
+
+                // Format as YYYY-MM-DD manually to respect local time
+                const toLocalISO = (dt) => {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth() + 1).padStart(2, '0');
+                    const d = String(dt.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                };
+
+                this.filterStartDate = toLocalISO(firstDay);
+                this.filterEndDate = toLocalISO(lastDay);
+                
+                // Configurar Inputs de Data
+                document.getElementById('filter-start-date').value = this.filterStartDate;
+                document.getElementById('filter-end-date').value = this.filterEndDate;
+                
+                // Populate Config Textarea (Restore functionality)
                 const savedConfig = localStorage.getItem('custom_firebase_config');
                 if(savedConfig) {
                     try {
@@ -825,1061 +618,515 @@
                          document.getElementById('custom-config-input').value = JSON.stringify(obj, null, 2);
                     } catch(e) {}
                 }
-
-                // Popula o ID da Sala no UI (agora via window.effectiveAppId)
-                // Se o effectiveId é igual ao default, é "Padrão", senão é o nome da sala.
-                const isDefault = window.effectiveAppId === (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
-                const displayName = isDefault ? 'Padrão (Sem compartilhamento)' : window.effectiveAppId;
-                
-                document.getElementById('custom-room-id-input').value = isDefault ? '' : displayName;
-                
-                // Atualiza displays de sala (Desktop e Mobile)
-                const displayEl = document.getElementById('room-display-text');
-                const mobileDisplayEl = document.getElementById('mobile-room-display');
-                
-                const roomText = isDefault ? 'Padrão' : displayName;
-                if(displayEl) displayEl.innerText = roomText;
-                if(mobileDisplayEl) mobileDisplayEl.innerText = `Sala: ${roomText.substring(0, 10)}...`;
-
-                // Check for pending migration
-                if (localStorage.getItem('pending_migration') === 'true') {
-                     localStorage.removeItem('pending_migration');
-                     this.showToast('Migrando dados...', 'Enviando para a nova sala.');
-                     // Wait for connection then upload
-                     setTimeout(() => this.migrateLocalToCloud(), 3000); 
+                const savedRoom = localStorage.getItem('custom_room_id');
+                if(savedRoom) {
+                    document.getElementById('custom-room-id-input').value = savedRoom;
                 }
 
-                // UI setup
-                document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-                if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.classList.add('dark');
-                }
-                document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-                    document.querySelector('aside').classList.toggle('hidden');
-                    document.querySelector('aside').classList.toggle('absolute');
-                    document.querySelector('aside').classList.toggle('h-full');
-                });
+                // Carregar Dados Locais
+                const localData = localStorage.getItem('marketingPlannerData_offline');
+                if (localData) try { this.data = JSON.parse(localData); } catch(e) { this.data = []; }
                 
+                // Exibir Sala
+                const room = window.effectiveAppId;
+                document.getElementById('room-display-text').innerText = room === 'default-app-id' ? 'Padrão' : room;
+                document.getElementById('mobile-room-display').innerText = room;
+
+                // Navegação Inicial
                 this.navigate('dashboard');
                 
-                // Tenta conectar ao Firebase de forma dinâmica (Sem travar o app)
-                setTimeout(() => {
-                    if (typeof initFirebaseConnection === 'function') {
-                        initFirebaseConnection();
-                    }
-                }, 500);
-            },
-            
-            // --- MANUA JOIN LOGIC ---
-            openJoinModal() {
-                document.getElementById('join-room-modal').classList.remove('hidden');
+                // Conectar
+                setTimeout(() => typeof initFirebaseConnection === 'function' && initFirebaseConnection(), 500);
             },
 
-            closeJoinModal() {
-                document.getElementById('join-room-modal').classList.add('hidden');
-            },
-
-            confirmJoinRoom() {
-                const rawCode = document.getElementById('manual-room-input').value;
-                if(!rawCode) return;
+            // --- FILTROS DE DATA ---
+            applyDateFilter() {
+                this.filterStartDate = document.getElementById('filter-start-date').value;
+                this.filterEndDate = document.getElementById('filter-end-date').value;
                 
-                // Normaliza o código antes de usar
-                const code = normalizeRoomId(rawCode);
-                
-                // MIGRATION ASK
-                let shouldMigrate = false;
-                if (this.data.length > 0) {
-                     shouldMigrate = confirm("Você tem dados na tela atual. Deseja COPIAR esses dados para a sala '" + code + "'?");
-                }
-
-                if(confirm(`Entrar na sala "${code}"? O sistema será recarregado.`)) {
-                    localStorage.setItem('custom_room_id', code);
-                    if(shouldMigrate) {
-                        localStorage.setItem('pending_migration', 'true');
-                    }
-                    // Atualiza URL para refletir a nova sala
-                    const newUrl = new URL(window.location);
-                    newUrl.searchParams.set('room', code);
-                    window.location.href = newUrl.toString(); // Força reload completo com novo URL
-                }
-            },
-
-            // --- DATA MIGRATION LOGIC ---
-            async migrateLocalToCloud() {
-                if (!window.firebaseOps || !window.db) {
-                     this.showToast('Erro Migração', 'Não conectado à nuvem.', false);
-                     return;
-                }
-                
-                let successCount = 0;
-                const targetId = window.effectiveAppId;
-                
-                for (const item of this.data) {
-                    try {
-                        await window.firebaseOps.setDoc(
-                           window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts', item.id), 
-                           item
-                        );
-                        successCount++;
-                    } catch (e) {
-                        console.warn("Erro ao migrar item:", item.id, e);
-                    }
-                }
-                
-                if(successCount > 0) {
-                    this.showToast('Migração Concluída', `${successCount} itens enviados para a sala.`);
-                }
-            },
-            
-            forceSync() {
-                 if(confirm("Deseja reenviar todos os dados locais para a nuvem da sala atual? Isso garante que tudo que você vê está salvo.")) {
-                     this.migrateLocalToCloud();
-                 }
-            },
-
-            // --- FUNÇÃO DE COMPARTILHAMENTO ---
-            shareLink() {
-                // 1. Verifica se já tem uma sala customizada
-                let roomId = window.effectiveAppId;
-                const defaultId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                
-                // Se estiver no padrão, gera uma nova sala
-                if (roomId === defaultId) {
-                    roomId = 'proj-' + Math.random().toString(36).substring(2, 7).toLowerCase();
-                    
-                    // Auto-migrate flag if we have data
-                    if (this.data.length > 0) {
-                         // Implicitly migrate for user convenience when creating a share link
-                         localStorage.setItem('pending_migration', 'true');
-                    }
-
-                    localStorage.setItem('custom_room_id', roomId);
-                    window.effectiveAppId = roomId;
-                    
-                    // Atualiza URL
-                    const newUrl = new URL(window.location);
-                    newUrl.searchParams.set('room', roomId);
-                    window.history.pushState({}, '', newUrl);
-                    
-                    // Atualiza UI
-                    document.getElementById('room-display-text').innerText = roomId;
-                    document.getElementById('mobile-room-display').innerText = `Sala: ${roomId}`;
-                    
-                    this.showToast('Nova sala criada!', 'Conectando...', true);
-                    
-                    // Reconecta
-                    setTimeout(() => {
-                        window.location.reload(); 
-                    }, 500);
+                if (!this.filterStartDate || !this.filterEndDate) {
+                    alert("Selecione data de início e fim.");
                     return;
                 }
-
-                // 2. Gera o Link
-                const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = `${baseUrl}?room=${roomId}`;
                 
-                // 3. Copia para Clipboard
-                navigator.clipboard.writeText(shareUrl).then(() => {
-                    this.showToast('Link Copiado!', `Sala: ${roomId}`, true);
-                }).catch(err => {
-                    prompt(`Copie o link (Sala: ${roomId}):`, shareUrl);
-                });
+                this.renderDashboard();
+                
+                const start = this.filterStartDate.split('-').reverse().join('/');
+                const end = this.filterEndDate.split('-').reverse().join('/');
+                document.getElementById('current-filter-label').innerText = `Filtro: ${start} até ${end}`;
             },
 
-            updateConnectionUI(status, msg) {
-                const el = document.getElementById('connection-status');
-                const dot = document.getElementById('status-dot');
-                const mobileDot = document.getElementById('mobile-status-dot');
-                
-                // Adiciona um handler de clique para configurações
-                if(el) {
-                    el.onclick = status === 'missing_config' 
-                        ? () => { app.navigate('backup'); document.getElementById('advanced-settings').classList.remove('hidden'); }
-                        : () => initFirebaseConnection();
-                }
-
-                if (status === 'success') {
-                    // Mostra em qual sala está conectado
-                    const isDefault = window.effectiveAppId === (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
-                    const roomName = isDefault ? 'Padrão' : window.effectiveAppId;
-                    
-                    // Add item count indicator
-                    const count = this.data ? this.data.length : 0;
-                    
-                    if(el) el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> ${count} Itens na Nuvem</span>`;
-                    
-                    if(dot) { dot.classList.remove('bg-gray-300', 'bg-red-500', 'bg-yellow-400'); dot.classList.add('bg-green-500'); }
-                    if(mobileDot) { mobileDot.classList.remove('bg-gray-300', 'bg-red-500', 'bg-yellow-400'); mobileDot.classList.add('bg-green-500'); }
-                    
-                    // Remove modo offline ao conectar com sucesso
-                    this.offlineMode = false;
-                } else if (status === 'error') {
-                    if(el) el.innerHTML = `<span class="text-red-600 font-bold flex items-center gap-1" title="${msg}"><i class="fa-solid fa-circle-exclamation"></i> ${msg}</span>`;
-                    
-                    if(dot) { dot.classList.remove('bg-green-500', 'bg-gray-300', 'bg-yellow-400'); dot.classList.add('bg-red-500'); }
-                    if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-gray-300', 'bg-yellow-400'); mobileDot.classList.add('bg-red-500'); }
-                } else if (status === 'missing_config') {
-                     if(el) el.innerHTML = `<span class="text-yellow-600 font-bold flex items-center gap-1 animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> ⚠️ Configurar Agora</span>`;
-                     
-                     if(dot) { dot.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-300'); dot.classList.add('bg-yellow-400'); }
-                     if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-red-500', 'bg-gray-300'); mobileDot.classList.add('bg-yellow-400'); }
-                } else {
-                    if(el) el.innerHTML = `<span class="text-gray-500 flex items-center gap-1"><i class="fa-solid fa-laptop"></i> ${msg || 'Modo Local'}</span>`;
-                    
-                    if(dot) { dot.classList.remove('bg-green-500', 'bg-red-500', 'bg-yellow-400'); dot.classList.add('bg-gray-300'); }
-                    if(mobileDot) { mobileDot.classList.remove('bg-green-500', 'bg-red-500', 'bg-yellow-400'); mobileDot.classList.add('bg-gray-300'); }
-                }
-            },
-            
-            handleConnectionClick() {
-                // Wrapper para clique no container do status
-                const el = document.getElementById('connection-status');
-                if(el && el.onclick) el.onclick();
-            },
-
-            // --- DIAGNOSTIC TOOL ---
-            async runDiagnostics() {
-                const output = document.getElementById('diagnostic-output');
-                output.innerHTML = 'Iniciando diagnóstico...<br>';
-                
-                const log = (msg, color='gray') => {
-                    const colorClass = color === 'red' ? 'text-red-600 font-bold' : (color === 'green' ? 'text-green-600 font-bold' : 'text-gray-600');
-                    output.innerHTML += `<div class="${colorClass}">> ${msg}</div>`;
+            setCurrentMonthFilter() {
+                const now = new Date();
+                const toLocalISO = (dt) => {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth() + 1).padStart(2, '0');
+                    const d = String(dt.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
                 };
 
-                // 1. Check Config
-                if (Object.keys(activeConfig).length === 0) {
-                    log('ERRO: Configuração do Firebase está vazia.', 'red');
-                    log('SOLUÇÃO: Cole a configuração JSON acima e clique em Salvar.', 'red');
-                    return;
-                }
+                this.filterStartDate = toLocalISO(new Date(now.getFullYear(), now.getMonth(), 1));
+                this.filterEndDate = toLocalISO(new Date(now.getFullYear(), now.getMonth() + 1, 0));
                 
-                if (!window.firebaseOps) {
-                    log('ERRO: SDK Firebase não carregado.', 'red');
-                    return;
-                }
-                log('SDK Firebase: OK', 'green');
-
-                // 2. Check Auth
-                if (!window.auth || !window.auth.currentUser) {
-                    log('Auth: Falhou. Usuário não logado.', 'red');
-                    if (this.lastAuthError) {
-                        log(`Detalhe Auth: ${this.lastAuthError.code || this.lastAuthError.message}`, 'red');
-                        if (this.lastAuthError.code === 'auth/operation-not-allowed') {
-                            log('SOLUÇÃO: Vá no Firebase Console > Authentication > Sign-in method e ative "Anonymous".', 'red');
-                        }
-                    } else if (this.lastConnectionError) {
-                         log(`Erro Geral: ${this.lastConnectionError.message}`, 'red');
-                    }
-                    return;
-                }
-                log(`Auth: OK (UID: ${window.auth.currentUser.uid.substring(0,5)}...)`, 'green');
-
-                // 3. Check Firestore Permission
-                log('Testando permissão de escrita no Firestore...', 'gray');
-                const targetId = window.effectiveAppId;
-                const testRef = window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', '_diagnostic_test_' + Date.now());
+                document.getElementById('filter-start-date').value = this.filterStartDate;
+                document.getElementById('filter-end-date').value = this.filterEndDate;
                 
-                try {
-                    await window.firebaseOps.setDoc(testRef, { test: true, timestamp: Date.now() });
-                    log('Firestore Escrita: OK', 'green');
-                    await window.firebaseOps.deleteDoc(testRef); // Clean up
-                    log('Diagnóstico Finalizado: Tudo parece correto.', 'green');
-                    alert("Sucesso! O sistema conseguiu ler e escrever no banco de dados.");
-                } catch (e) {
-                    log(`ERRO Firestore: ${e.code}`, 'red');
-                    if (e.code === 'permission-denied') {
-                         log('SOLUÇÃO: Suas regras de segurança (Firestore Rules) estão bloqueando. Certifique-se que o banco de dados foi criado e as regras permitem leitura/escrita.', 'red');
-                    } else if (e.code === 'unavailable') {
-                        log('SOLUÇÃO: Verifique sua conexão com a internet ou se o serviço do Firebase está offline.', 'red');
-                    } else {
-                        log(`Detalhe: ${e.message}`, 'red');
-                    }
-                }
+                this.applyDateFilter();
             },
 
-            setupRealtimeListener() {
-                if (!window.firebaseOps || !window.db) return;
-                const { collection, onSnapshot, query } = window.firebaseOps;
-                try {
-                    // USA O EFFECTIVE APP ID (NOME DA SALA)
-                    const targetId = window.effectiveAppId;
-                    const postsRef = collection(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts');
-                    const q = query(postsRef);
-
-                    window.firebaseOps.onSnapshot(q, (snapshot) => {
-                        this.offlineMode = false;
-                        const cloudData = [];
-                        snapshot.forEach((doc) => {
-                            cloudData.push({ id: doc.id, ...doc.data() });
-                        });
-                        
-                        // Atualiza sempre que vier do cloud, mesmo que vazio (significa que apagaram tudo lá)
-                        this.data = cloudData;
-                        this.saveLocal();
-                        this.refreshCurrentView();
-                        
-                        // Update UI counter
-                        this.updateConnectionUI('success', 'Nuvem Ativa');
-                        
-                    }, (error) => {
-                        console.warn("Realtime error:", error);
-                        // Falha silenciosa para modo offline
-                        this.offlineMode = true; 
-                        this.updateConnectionUI('error', 'Desconectado');
-                    });
-                } catch (e) {
-                    console.warn(e);
-                }
-            },
-
-            refreshCurrentView() {
-                if (!document.getElementById('view-dashboard').classList.contains('hidden')) this.renderDashboard();
-                if (!document.getElementById('view-activities').classList.contains('hidden')) this.renderActivities();
-                if (!document.getElementById('view-ideas').classList.contains('hidden')) this.renderIdeas();
-                if (!document.getElementById('view-calendar').classList.contains('hidden')) {
-                     if(this.calendarInstance) {
-                         this.calendarInstance.refetchEvents();
-                     } else {
-                         this.initCalendar();
-                     }
-                }
-            },
-
+            // --- NAVEGAÇÃO ---
             navigate(target) {
                 document.querySelectorAll('.nav-item').forEach(btn => {
-                    const isTarget = btn.dataset.target === target;
-                    // Reset classes
-                    btn.classList.remove('bg-indigo-50', 'dark:bg-gray-700', 'text-indigo-600', 'bg-green-50', 'text-green-700');
-                    btn.classList.add('text-gray-600', 'dark:text-gray-300');
-                    
-                    if (isTarget) {
-                        if(target === 'backup') {
-                            btn.classList.add('bg-green-50', 'dark:bg-green-900/20', 'text-green-700', 'dark:text-green-400'); // Estilo diferente para config
-                        } else {
-                            btn.classList.add('bg-indigo-50', 'dark:bg-gray-700', 'text-indigo-600');
-                        }
-                        btn.classList.remove('text-gray-600', 'dark:text-gray-300');
+                    if (btn.dataset.target === target) {
+                        btn.classList.add('bg-indigo-50', 'dark:bg-gray-700', 'text-indigo-600');
+                    } else {
+                        btn.classList.remove('bg-indigo-50', 'dark:bg-gray-700', 'text-indigo-600');
                     }
                 });
-
                 document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-                const targetEl = document.getElementById(`view-${target}`);
-                if(targetEl) targetEl.classList.remove('hidden');
+                document.getElementById(`view-${target}`).classList.remove('hidden');
 
                 if (target === 'dashboard') this.renderDashboard();
+                if (target === 'traffic') this.renderTraffic();
                 if (target === 'activities') this.renderActivities();
-                if (target === 'ideas') this.renderIdeas();
                 if (target === 'calendar') this.initCalendar();
+                if (target === 'ideas') this.renderIdeas();
             },
 
+            getFilteredData() {
+                return this.data.filter(item => {
+                    if (!item.date) return false;
+                    return item.date >= this.filterStartDate && item.date <= this.filterEndDate;
+                });
+            },
+
+            // --- DASHBOARD ---
             renderDashboard() {
-                if(!document.getElementById('kpi-done')) return; 
-
-                const now = new Date();
-                const today = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-
-                const realPosts = this.data.filter(i => i.type !== 'idea_draft');
-
-                const total = realPosts.length;
-                const doneItems = realPosts.filter(i => i.status === 'done');
-                const done = doneItems.length;
-                const pending = realPosts.filter(i => i.status === 'pending' || i.status === 'in_progress').length;
+                const filtered = this.getFilteredData();
                 
-                const late = realPosts.filter(i => 
-                    (i.status === 'pending' || i.status === 'in_progress') && 
-                    i.date < today
-                ).length;
+                // 1. Dados de Conteúdo
+                const posts = filtered.filter(i => (!i.docType || i.docType === 'post'));
+                const done = posts.filter(i => i.status === 'done').length;
+                const total = posts.length;
+                const rate = total > 0 ? Math.round((done/total)*100) : 0;
+                
+                let contentCost = 0;
+                posts.forEach(p => {
+                    if(p.hasCost && p.costValue) contentCost += parseFloat(p.costValue);
+                });
 
-                let productivityRate = 0;
-                if (total > 0) {
-                    productivityRate = Math.round((done / total) * 100);
-                }
-
+                document.getElementById('kpi-total').innerText = total;
                 document.getElementById('kpi-done').innerText = done;
-                document.getElementById('kpi-pending').innerText = pending;
-                document.getElementById('kpi-late').innerText = late;
-                const totalEl = document.getElementById('kpi-total');
-                if(totalEl) totalEl.innerText = total;
+                document.getElementById('kpi-pending').innerText = posts.filter(i => i.status === 'pending').length;
+                document.getElementById('kpi-rate').innerText = `${rate}%`;
+                document.getElementById('kpi-content-cost').innerText = contentCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-                const prodEl = document.getElementById('kpi-productivity');
-                if(prodEl) prodEl.innerText = `${productivityRate}%`;
+                // 2. Dados de Tráfego
+                const trafficItems = filtered.filter(i => i.docType === 'traffic');
+                let trafficInvest = 0;
+                const trafficByPlatform = {};
                 
-                const prodDesc = document.getElementById('kpi-productivity-desc');
-                if(prodDesc) prodDesc.innerText = `${done} de ${total} tarefas totais`;
+                trafficItems.forEach(t => {
+                    const val = parseFloat(t.value || 0);
+                    trafficInvest += val;
+                    trafficByPlatform[t.platform] = (trafficByPlatform[t.platform] || 0) + val;
+                });
 
-                this.renderCharts({ total, done, pending, late, realPosts });
+                document.getElementById('kpi-traffic').innerText = trafficInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                // 3. Total Geral
+                const totalInvest = contentCost + trafficInvest;
+                document.getElementById('kpi-total-invest').innerText = totalInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                // Gráficos
+                this.renderCharts(posts, trafficByPlatform);
             },
 
-            renderCharts(stats) {
-                const igCount = stats.realPosts.filter(i => i.platform === 'instagram').length;
-                const ytCount = stats.realPosts.filter(i => i.platform === 'youtube').length;
-                const ttCount = stats.realPosts.filter(i => i.platform === 'tiktok').length;
-                const otherCount = stats.realPosts.filter(i => i.platform === 'others').length;
-
-                if (this.charts.status) this.charts.status.destroy();
-                if (this.charts.platform) this.charts.platform.destroy();
+            renderCharts(posts, trafficData) {
+                if(this.charts.traffic) this.charts.traffic.destroy();
+                if(this.charts.platform) this.charts.platform.destroy();
+                if(this.charts.status) this.charts.status.destroy();
 
                 const isDark = document.documentElement.classList.contains('dark');
-                const textColor = isDark ? '#cbd5e1' : '#475569';
+                const colorText = isDark ? '#cbd5e1' : '#475569';
 
-                const ctx1 = document.getElementById('statusChart').getContext('2d');
-                this.charts.status = new Chart(ctx1, {
+                // Chart 1: Traffic
+                const tLabels = Object.keys(trafficData).map(k => k.replace('_', ' ').toUpperCase());
+                const tValues = Object.values(trafficData);
+                
+                this.charts.traffic = new Chart(document.getElementById('trafficChart'), {
                     type: 'doughnut',
                     data: {
-                        labels: ['Concluído', 'Pendente', 'Atrasado'],
+                        labels: tLabels,
                         datasets: [{
-                            data: [stats.done, stats.pending, stats.late],
-                            backgroundColor: ['#16a34a', '#ca8a04', '#dc2626'],
+                            data: tValues.length ? tValues : [1], // Dummy if empty
+                            backgroundColor: tValues.length ? ['#0668E1', '#4285F4', '#000000', '#0077b5', '#fbbf24'] : ['#e5e7eb'],
                             borderWidth: 0
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { labels: { color: textColor } } }
-                    }
+                    options: { plugins: { legend: { position: 'right', labels: { color: colorText, boxWidth: 10 } } } }
                 });
 
-                const ctx2 = document.getElementById('platformChart').getContext('2d');
-                this.charts.platform = new Chart(ctx2, {
+                // Chart 2: Content
+                const platforms = ['instagram', 'youtube', 'tiktok', 'others'];
+                const pCounts = platforms.map(p => posts.filter(i => i.platform === p).length);
+                
+                this.charts.platform = new Chart(document.getElementById('platformChart'), {
                     type: 'bar',
                     data: {
-                        labels: ['Instagram', 'YouTube', 'TikTok', 'Outros'],
+                        labels: ['IG', 'YT', 'TT', 'OUT'],
                         datasets: [{
-                            label: 'Postagens / Eventos',
-                            data: [igCount, ytCount, ttCount, otherCount],
-                            backgroundColor: ['#C13584', '#FF0000', '#333333', '#fbbf24'],
-                            borderRadius: 6
+                            label: 'Posts',
+                            data: pCounts,
+                            backgroundColor: '#4F46E5',
+                            borderRadius: 4
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                    options: { 
                         plugins: { legend: { display: false } },
-                        scales: {
-                            y: { ticks: { color: textColor }, grid: { color: isDark ? '#334155' : '#e2e8f0' } },
-                            x: { ticks: { color: textColor }, grid: { display: false } }
-                        }
+                        scales: { x: { ticks: { color: colorText }, grid: { display: false } }, y: { ticks: { color: colorText } } }
                     }
+                });
+
+                // Chart 3: Status
+                this.charts.status = new Chart(document.getElementById('statusChart'), {
+                    type: 'pie',
+                    data: {
+                        labels: ['Feito', 'Pendente'],
+                        datasets: [{
+                            data: [posts.filter(i=>i.status==='done').length, posts.filter(i=>i.status==='pending').length],
+                            backgroundColor: ['#10b981', '#f59e0b'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: { plugins: { legend: { labels: { color: colorText } } } }
                 });
             },
 
-            initCalendar() {
-                setTimeout(() => {
-                    const calendarEl = document.getElementById('calendar');
-                    if (this.calendarInstance) {
-                        this.calendarInstance.destroy();
-                    }
+            // --- TRÁFEGO PAGO LOGIC ---
+            renderTraffic() {
+                const list = document.getElementById('traffic-list');
+                const empty = document.getElementById('traffic-empty');
+                list.innerHTML = '';
 
-                    this.calendarInstance = new FullCalendar.Calendar(calendarEl, {
-                        initialView: 'dayGridMonth',
-                        locale: 'pt-br',
-                        headerToolbar: {
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: 'dayGridMonth,listWeek'
-                        },
-                        events: this.data
-                            .filter(item => item.type !== 'idea_draft') 
-                            .map(item => {
-                                let prefix = '';
-                                if(item.platform === 'instagram') prefix = 'IG';
-                                else if(item.platform === 'youtube') prefix = 'YT';
-                                else if(item.platform === 'tiktok') prefix = 'TT';
-                                else prefix = 'OUT';
-                                
-                                return {
-                                    id: item.id,
-                                    title: `[${prefix}] ${item.title}`,
-                                    start: item.date, 
-                                    color: this.getStatusColor(item.status),
-                                    extendedProps: { ...item }
-                                };
-                            }),
-                        eventClick: (info) => {
-                            this.openModal(info.event.extendedProps);
-                        },
-                        dateClick: (info) => {
-                            this.openModal(null, info.dateStr);
-                        },
-                        height: 'auto'
-                    });
+                // Lista COMPLETA (Histórico) ou FILTRADA?
+                // Decisão: Manter lista completa para gestão, Dashboard para análise.
+                // Ordenar por data (mais recente)
+                const items = this.data.filter(i => i.docType === 'traffic');
+                items.sort((a,b) => new Date(b.date) - new Date(a.date));
 
-                    this.calendarInstance.render();
-                }, 100);
-            },
-
-            getStatusColor(status) {
-                if (status === 'done') return '#16a34a';
-                if (status === 'late') return '#dc2626';
-                return '#4F46E5';
-            },
-
-            renderActivities() {
-                const listEl = document.getElementById('activities-list');
-                const emptyEl = document.getElementById('empty-state');
-                const loadingEl = document.getElementById('loading-state');
-                
-                if(loadingEl) loadingEl.classList.add('hidden');
-
-                const filterPlatform = document.getElementById('filter-platform').value;
-                const filterStatus = document.getElementById('filter-status').value;
-
-                listEl.innerHTML = '';
-
-                const now = new Date();
-                const today = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-
-                let filtered = this.data.filter(i => i.type !== 'idea_draft');
-                
-                filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
-                if (filterPlatform !== 'all') filtered = filtered.filter(i => i.platform === filterPlatform);
-                if (filterStatus !== 'all') filtered = filtered.filter(i => i.status === filterStatus);
-
-                if (filtered.length === 0) {
-                    emptyEl.classList.remove('hidden');
+                if(items.length === 0) {
+                    empty.classList.remove('hidden');
                     return;
                 }
-                emptyEl.classList.add('hidden');
+                empty.classList.add('hidden');
 
-                filtered.forEach(item => {
-                    const isLate = item.status !== 'done' && item.date < today;
+                const platformMap = {
+                    'meta_ads': '<span class="flex items-center gap-2 text-blue-700 font-bold"><i class="fa-brands fa-meta"></i> Meta Ads</span>',
+                    'google_ads': '<span class="flex items-center gap-2 text-blue-500 font-bold"><i class="fa-brands fa-google"></i> Google</span>',
+                    'tiktok_ads': '<span class="flex items-center gap-2 text-black dark:text-gray-300 font-bold"><i class="fa-brands fa-tiktok"></i> TikTok</span>',
+                    'linkedin_ads': '<span class="flex items-center gap-2 text-blue-800 font-bold"><i class="fa-brands fa-linkedin"></i> LinkedIn</span>',
+                    'other': 'Outro'
+                };
+                const methodMap = { 'credit_card': 'Cartão', 'pix': 'PIX', 'boleto': 'Boleto', 'transfer': 'Transf.' };
+
+                items.forEach(item => {
+                    const val = parseFloat(item.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                    const date = item.date.split('-').reverse().join('/');
                     
-                    let statusBadge = '';
-                    if (item.status === 'done') statusBadge = '<span class="inline-flex items-center rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">Concluído</span>';
-                    else if (isLate) statusBadge = '<span class="inline-flex items-center rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">Atrasado</span>';
-                    else statusBadge = '<span class="inline-flex items-center rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">Pendente</span>';
-
-                    let icon = '';
-                    if(item.platform === 'instagram') icon = '<i class="fa-brands fa-instagram text-pink-600 text-lg"></i>';
-                    else if(item.platform === 'youtube') icon = '<i class="fa-brands fa-youtube text-red-600 text-lg"></i>';
-                    else if(item.platform === 'tiktok') icon = '<i class="fa-brands fa-tiktok text-gray-800 dark:text-gray-200 text-lg"></i>';
-                    else icon = '<i class="fa-solid fa-bullhorn text-amber-500 text-lg"></i>';
-
-                    let extraInfo = '';
-                    if(item.platform === 'others' && item.hasCost) {
-                        extraInfo = `<div class="text-xs text-gray-400 mt-1">Custo: R$ ${item.costValue || '0,00'}</div>`;
-                    }
-
-                    const formatDateStr = (dateStr) => {
-                        if (!dateStr) return '-';
-                        const parts = dateStr.split('-');
-                        if (parts.length !== 3) return dateStr;
-                        return `${parts[2]}/${parts[1]}/${parts[0]}`; 
-                    };
-
-                    const dateFormatted = formatDateStr(item.date);
-                    const completedFormatted = formatDateStr(item.completedDate);
-
                     const row = document.createElement('tr');
-                    row.className = 'hover:bg-gray-50 dark:hover:bg-gray-700/50 transition border-b border-gray-100 dark:border-gray-700 last:border-0';
+                    row.className = "border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50";
                     row.innerHTML = `
-                        <td class="p-4 whitespace-nowrap">${statusBadge}</td>
-                        <td class="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${dateFormatted}</td>
-                        <td class="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${completedFormatted}</td>
-                        <td class="p-4 whitespace-nowrap text-sm font-medium flex items-center gap-2">${icon} <span class="capitalize text-gray-700 dark:text-gray-300">${item.type}</span></td>
-                        <td class="p-4 text-sm text-gray-900 dark:text-gray-100 font-medium">
-                            ${item.title}
-                            ${extraInfo}
-                        </td>
-                        <td class="p-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button onclick="app.toggleStatus('${item.id}')" class="text-indigo-600 hover:text-indigo-900 dark:hover:text-indigo-400 mr-3" title="Marcar como Concluído/Pendente">
-                                <i class="fa-solid fa-check-circle text-lg"></i>
-                            </button>
-                            <button onclick="app.editById('${item.id}')" class="text-gray-500 hover:text-gray-900 dark:hover:text-white">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
+                        <td class="p-4 text-sm font-mono text-gray-500">${date}</td>
+                        <td class="p-4 text-sm">${platformMap[item.platform] || item.platform}</td>
+                        <td class="p-4 text-sm text-gray-600 dark:text-gray-300"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs uppercase">${methodMap[item.paymentMethod] || '-'}</span></td>
+                        <td class="p-4 font-bold text-emerald-600 dark:text-emerald-400">${val}</td>
+                        <td class="p-4 text-xs text-gray-400 italic">${item.notes || '-'}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="app.editTraffic('${item.id}')" class="text-gray-400 hover:text-blue-500 mr-2"><i class="fa-solid fa-pen"></i></button>
                         </td>
                     `;
-                    listEl.appendChild(row);
+                    list.appendChild(row);
                 });
             },
 
-            renderIdeas() {
-                const listEl = document.getElementById('ideas-list');
-                const emptyEl = document.getElementById('ideas-empty');
-                const ideas = this.data.filter(i => i.type === 'idea_draft');
-
-                listEl.innerHTML = '';
-                if (ideas.length === 0) {
-                    emptyEl.classList.remove('hidden');
-                    return;
-                }
-                emptyEl.classList.add('hidden');
-
-                ideas.sort((a, b) => new Date(b.date || '9999-12-31') - new Date(a.date || '9999-12-31'));
-
-                ideas.forEach(item => {
-                    const isApproved = item.status === 'idea_approved';
-                    const formatDateStr = (dateStr) => {
-                        if (!dateStr) return 'Sem data';
-                        const parts = dateStr.split('-');
-                        if (parts.length !== 3) return dateStr;
-                        return `${parts[2]}/${parts[1]}/${parts[0]}`; 
-                    };
-
-                    const div = document.createElement('div');
-                    div.className = 'p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition';
-                    div.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <button onclick="app.toggleIdeaStatus('${item.id}')" class="flex-shrink-0 w-6 h-6 rounded border ${isApproved ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 dark:border-gray-500 text-transparent hover:border-green-500'} flex items-center justify-center transition">
-                                <i class="fa-solid fa-check text-sm"></i>
-                            </button>
-                            <div class="${isApproved ? 'opacity-50 line-through' : ''}">
-                                <p class="text-gray-900 dark:text-gray-100 font-medium">${item.title}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">${formatDateStr(item.date)}</p>
-                            </div>
-                        </div>
-                        <button onclick="app.deleteIdea('${item.id}')" class="text-gray-400 hover:text-red-500 transition px-2">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    `;
-                    listEl.appendChild(div);
-                });
-            },
-
-            async addIdea() {
-                const text = document.getElementById('new-idea-text').value;
-                const date = document.getElementById('new-idea-date').value;
-
-                if (!text) {
-                    alert('Digite sua ideia!');
-                    return;
-                }
-
-                const newIdea = {
-                    id: this.generateId(),
-                    title: text,
-                    date: date || new Date().toISOString().split('T')[0], 
-                    type: 'idea_draft',
-                    status: 'idea_pending',
-                    platform: 'idea',
-                    description: '',
-                    hasCost: false
-                };
-
-                await this.saveItemGeneric(newIdea, 'Ideia adicionada!');
-                document.getElementById('new-idea-text').value = '';
-                document.getElementById('new-idea-date').value = '';
-            },
-
-            async toggleIdeaStatus(id) {
-                const item = this.data.find(i => i.id === id);
-                if (!item) return;
-
-                const newStatus = item.status === 'idea_approved' ? 'idea_pending' : 'idea_approved';
-                item.status = newStatus;
-                this.renderIdeas();
-                await this.saveItemGeneric(item, null); 
-                if(newStatus === 'idea_approved') this.showToast('Ideia Aprovada!', 'Sucesso!');
-            },
-
-            async deleteIdea(id) {
-                if(!confirm('Excluir esta ideia?')) return;
-                
-                this.data = this.data.filter(i => i.id !== id);
-                this.saveLocal();
-                this.renderIdeas();
-                
-                if (!this.offlineMode && window.firebaseOps) {
-                    try {
-                        const targetId = window.effectiveAppId;
-                        await window.firebaseOps.deleteDoc(
-                            window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts', id)
-                        );
-                    } catch(e) {}
-                }
-            },
-
-            // --- BACKUP & RESTORE LOGIC ---
-            backupData() {
-                const headers = ["ID", "Título", "Canal", "Tipo", "Data Planejada", "Data Conclusão", "Status", "Descrição", "Tem Custo?", "Valor"];
-                const rows = this.data.map(i => {
-                    const cleanDesc = (i.description || "").replace(/(\r\n|\n|\r)/gm, " ");
-                    return [
-                        `"${i.id}"`, 
-                        `"${i.title}"`, 
-                        `"${i.platform}"`, 
-                        `"${i.type}"`, 
-                        `"${i.date}"`, 
-                        `"${i.completedDate || ""}"`, 
-                        `"${i.status}"`, 
-                        `"${cleanDesc}"`, 
-                        i.hasCost ? "Sim" : "Não", 
-                        `"${i.costValue || "0"}"`
-                    ].join(",");
-                });
-                
-                const csvContent = "\uFEFF" + headers.join(",") + "\n" + rows.join("\n"); 
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                
-                const now = new Date();
-                const timestamp = now.toISOString().split('T')[0];
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Planejamento_Marketing_${timestamp}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                
-                this.showToast('Planilha Baixada!', 'Abra no Excel ou Google Sheets.');
-            },
-
-            restoreData(input) {
-                const file = input.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const content = e.target.result;
-                    let importedData = [];
-
-                    if(file.name.endsWith('.json')) {
-                        try {
-                            importedData = JSON.parse(content);
-                        } catch(err) { alert("JSON inválido"); return; }
-                    } else {
-                        const lines = content.split('\n');
-                        for(let i=1; i<lines.length; i++) {
-                            if(!lines[i].trim()) continue;
-                            const cols = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-                            const clean = (val) => val ? val.replace(/^"|"$/g, '') : '';
-                            
-                            if(cols.length >= 7) {
-                                importedData.push({
-                                    id: clean(cols[0]) || this.generateId(),
-                                    title: clean(cols[1]),
-                                    platform: clean(cols[2]),
-                                    type: clean(cols[3]),
-                                    date: clean(cols[4]),
-                                    completedDate: clean(cols[5]) || null,
-                                    status: clean(cols[6]),
-                                    description: clean(cols[7]),
-                                    hasCost: clean(cols[8]) === "Sim",
-                                    costValue: clean(cols[9])
-                                });
-                            }
-                        }
-                    }
-
-                    if(importedData.length === 0) { alert("Nenhum dado encontrado."); return; }
-
-                    if(!confirm(`Carregar ${importedData.length} itens da planilha?`)) {
-                        input.value = ''; 
-                        return;
-                    }
-
-                    for (const item of importedData) {
-                        const index = this.data.findIndex(d => d.id === item.id);
-                        if(index >= 0) this.data[index] = item;
-                        else this.data.push(item);
-                        
-                         if (!this.offlineMode && window.firebaseOps) {
-                            try {
-                                const targetId = window.effectiveAppId;
-                                await window.firebaseOps.setDoc(
-                                window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts', item.id), 
-                                item
-                                );
-                            } catch(e) {}
-                        }
-                    }
-                    
-                    this.saveLocal();
-                    this.refreshCurrentView();
-                    this.showToast('Importação Concluída!', 'Dados atualizados.');
-                    input.value = ''; 
-                };
-                reader.readAsText(file);
-            },
-
-            // --- SAVE LOGIC ---
-            async saveItemGeneric(item, toastMsg) {
-                const index = this.data.findIndex(i => i.id === item.id);
-                if(index >= 0) this.data[index] = item;
-                else this.data.push(item);
-                this.saveLocal();
-                this.refreshCurrentView();
-
-                if (!this.offlineMode && window.firebaseOps) {
-                    try {
-                        const targetId = window.effectiveAppId;
-                        await window.firebaseOps.setDoc(
-                           window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts', item.id), 
-                           item
-                        );
-                    } catch (e) {
-                       console.warn("Falha nuvem:", e);
-                    }
-                }
-                
-                if(toastMsg) this.showToast(toastMsg, '', true);
-            },
-            
-            saveLocal() {
-                localStorage.setItem('marketingPlannerData_offline', JSON.stringify(this.data));
-            },
-
-            // -- OUTROS HELPERS (UI) --
-            toggleCostFields() {
-                const platform = document.getElementById('post-platform').value;
-                const container = document.getElementById('cost-container');
-                if (platform === 'others') {
-                    container.classList.remove('hidden');
-                } else {
-                    container.classList.add('hidden');
-                    document.getElementById('post-has-cost').checked = false;
-                    document.getElementById('cost-value-container').classList.add('hidden');
-                    document.getElementById('post-cost-value').value = '';
-                }
-            },
-
-            toggleCostInput() {
-                const hasCost = document.getElementById('post-has-cost').checked;
-                const inputContainer = document.getElementById('cost-value-container');
-                if (hasCost) {
-                    inputContainer.classList.remove('hidden');
-                } else {
-                    inputContainer.classList.add('hidden');
-                    document.getElementById('post-cost-value').value = '';
-                }
-            },
-
-            openModal(existingItem = null, defaultDate = null) {
-                const modal = document.getElementById('post-modal');
-                const title = document.getElementById('modal-title');
-                const btnDelete = document.getElementById('btn-delete');
-                const btnSave = document.getElementById('btn-save-post');
-                const btnText = document.getElementById('save-text');
-                
+            openTrafficModal(existing = null) {
+                const modal = document.getElementById('traffic-modal');
+                const btnDelete = document.getElementById('btn-delete-traffic');
                 modal.classList.remove('hidden');
-                btnSave.disabled = false;
-                btnText.innerText = 'Salvar';
-
-                if (existingItem) {
-                    title.innerText = 'Editar Postagem';
+                document.getElementById('traffic-form').reset();
+                
+                if(existing) {
+                    document.getElementById('traffic-id').value = existing.id;
+                    document.getElementById('traffic-platform').value = existing.platform;
+                    document.getElementById('traffic-value').value = existing.value;
+                    document.getElementById('traffic-date').value = existing.date;
+                    document.getElementById('traffic-method').value = existing.paymentMethod;
+                    document.getElementById('traffic-notes').value = existing.notes;
                     btnDelete.classList.remove('hidden');
-                    document.getElementById('post-id').value = existingItem.id;
-                    document.getElementById('post-title').value = existingItem.title;
-                    document.getElementById('post-platform').value = existingItem.platform;
-                    document.getElementById('post-type').value = existingItem.type;
-                    document.getElementById('post-date').value = existingItem.date;
-                    document.getElementById('post-desc').value = existingItem.description;
-                    document.getElementById('post-status').value = existingItem.status;
-                    document.getElementById('post-completed-date').value = existingItem.completedDate || '';
-
-                    this.toggleCostFields();
-                    if(existingItem.platform === 'others') {
-                        document.getElementById('post-has-cost').checked = existingItem.hasCost || false;
-                        this.toggleCostInput();
-                        document.getElementById('post-cost-value').value = existingItem.costValue || '';
-                    }
-
                 } else {
-                    title.innerText = 'Nova Postagem';
+                    document.getElementById('traffic-id').value = '';
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    document.getElementById('traffic-date').value = `${y}-${m}-${d}`;
                     btnDelete.classList.add('hidden');
-                    document.getElementById('post-form').reset();
+                }
+            },
+
+            closeTrafficModal() { document.getElementById('traffic-modal').classList.add('hidden'); },
+
+            editTraffic(id) {
+                const item = this.data.find(i => i.id === id);
+                if(item) this.openTrafficModal(item);
+            },
+
+            async saveTraffic() {
+                const id = document.getElementById('traffic-id').value || this.generateId();
+                const item = {
+                    id: id,
+                    docType: 'traffic',
+                    platform: document.getElementById('traffic-platform').value,
+                    value: document.getElementById('traffic-value').value,
+                    date: document.getElementById('traffic-date').value,
+                    paymentMethod: document.getElementById('traffic-method').value,
+                    notes: document.getElementById('traffic-notes').value,
+                    title: `Investimento ${document.getElementById('traffic-platform').value}`
+                };
+
+                if(!item.value || !item.date) { alert("Preencha valor e data"); return; }
+                await this.saveItemGeneric(item);
+                this.closeTrafficModal();
+            },
+
+            async deleteTraffic() {
+                const id = document.getElementById('traffic-id').value;
+                if(confirm("Excluir este investimento?")) {
+                    await this.deleteItemGeneric(id);
+                    this.closeTrafficModal();
+                }
+            },
+
+            // --- CONTEÚDO ---
+            renderActivities() {
+                const list = document.getElementById('activities-list');
+                list.innerHTML = '';
+                const posts = this.data.filter(i => (!i.docType || i.docType === 'post'));
+                posts.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+                posts.forEach(item => {
+                    const row = document.createElement('tr');
+                    const date = item.date.split('-').reverse().join('/');
+                    const statusClass = item.status === 'done' ? 'text-green-600 bg-green-50' : 'text-yellow-600 bg-yellow-50';
+                    row.className = "border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+                    row.innerHTML = `
+                        <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${statusClass}">${item.status === 'done' ? 'Feito' : 'Pendente'}</span></td>
+                        <td class="p-4 text-sm text-gray-500">${date}</td>
+                        <td class="p-4 text-sm font-bold capitalize">${item.platform}</td>
+                        <td class="p-4 text-sm">${item.title}</td>
+                        <td class="p-4 text-right">
+                            <button onclick="app.editPost('${item.id}')" class="text-gray-400 hover:text-indigo-600"><i class="fa-solid fa-pen"></i></button>
+                        </td>
+                    `;
+                    list.appendChild(row);
+                });
+            },
+
+            openModal(existing = null) {
+                const modal = document.getElementById('post-modal');
+                modal.classList.remove('hidden');
+                document.getElementById('post-form').reset();
+                const btnDelete = document.getElementById('btn-delete');
+
+                if(existing) {
+                    document.getElementById('post-id').value = existing.id;
+                    document.getElementById('post-title').value = existing.title;
+                    document.getElementById('post-platform').value = existing.platform;
+                    document.getElementById('post-type').value = existing.type;
+                    document.getElementById('post-date').value = existing.date;
+                    document.getElementById('post-status').value = existing.status;
+                    
+                    document.getElementById('post-has-cost').checked = existing.hasCost || false;
+                    document.getElementById('cost-group').classList.toggle('hidden', !existing.hasCost);
+                    document.getElementById('post-cost-value').value = existing.costValue || '';
+                    
+                    btnDelete.classList.remove('hidden');
+                } else {
                     document.getElementById('post-id').value = '';
-                    document.getElementById('post-status').value = 'pending';
-                    document.getElementById('post-completed-date').value = '';
-                    this.toggleCostFields();
-                    if(defaultDate) document.getElementById('post-date').value = defaultDate;
+                    // Fix Local Date
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    document.getElementById('post-date').value = `${y}-${m}-${d}`;
+                    
+                    document.getElementById('cost-group').classList.add('hidden');
+                    btnDelete.classList.add('hidden');
                 }
             },
 
-            closeModal() {
-                document.getElementById('post-modal').classList.add('hidden');
-            },
+            closeModal() { document.getElementById('post-modal').classList.add('hidden'); },
 
-            generateId() {
-                if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                    try { return crypto.randomUUID(); } catch(e) {}
-                }
-                return Date.now().toString(36) + Math.random().toString(36).substring(2);
+            editPost(id) {
+                const item = this.data.find(i => i.id === id);
+                if(item) this.openModal(item);
             },
 
             async savePost() {
-                const btnSave = document.getElementById('btn-save-post');
-                const saveText = document.getElementById('save-text');
-
-                // UI Feedback
-                btnSave.disabled = true;
-                saveText.innerText = 'Salvando...';
-
                 const id = document.getElementById('post-id').value || this.generateId();
-                const status = document.getElementById('post-status').value;
-                const completedDateStored = document.getElementById('post-completed-date').value;
-
-                const newItem = {
+                const item = {
                     id: id,
+                    docType: 'post',
                     title: document.getElementById('post-title').value,
                     platform: document.getElementById('post-platform').value,
                     type: document.getElementById('post-type').value,
                     date: document.getElementById('post-date').value,
-                    description: document.getElementById('post-desc').value,
-                    status: status,
+                    status: document.getElementById('post-status').value,
                     hasCost: document.getElementById('post-has-cost').checked,
-                    costValue: document.getElementById('post-cost-value').value,
-                    completedDate: completedDateStored
+                    costValue: document.getElementById('post-cost-value').value
                 };
-
-                if (!newItem.title || !newItem.date) {
-                    alert('Preencha pelo menos o título e a data.');
-                    btnSave.disabled = false;
-                    saveText.innerText = 'Salvar';
-                    return;
-                }
-
-                if (status === 'done' && !completedDateStored) {
-                    this.pendingNewItem = newItem; 
-                    this.triggerCompletion(id);
-                    return; 
-                }
-
-                if (status !== 'done') newItem.completedDate = null;
-
-                await this.saveItemGeneric(newItem, 'Salvo!');
+                if(!item.title) return alert("Preencha o título");
+                await this.saveItemGeneric(item);
                 this.closeModal();
             },
 
             async deletePost() {
                 const id = document.getElementById('post-id').value;
-                if(!confirm('Tem certeza que deseja excluir?')) return;
+                if(confirm("Excluir?")) {
+                    await this.deleteItemGeneric(id);
+                    this.closeModal();
+                }
+            },
+
+            // --- HELPER GENÉRICOS ---
+            async saveItemGeneric(item) {
+                const idx = this.data.findIndex(i => i.id === item.id);
+                if(idx >= 0) this.data[idx] = item;
+                else this.data.push(item);
                 
+                this.saveLocal();
+                this.refreshAll();
+
+                if (window.firebaseOps) {
+                    try {
+                        const ref = window.firebaseOps.doc(window.db, 'artifacts', window.effectiveAppId, 'public', 'data', 'marketing_posts', item.id);
+                        await window.firebaseOps.setDoc(ref, item);
+                    } catch(e) { console.error(e); }
+                }
+            },
+
+            async deleteItemGeneric(id) {
                 this.data = this.data.filter(i => i.id !== id);
                 this.saveLocal();
-                this.refreshCurrentView();
-                
-                if (!this.offlineMode && window.firebaseOps) {
+                this.refreshAll();
+                if (window.firebaseOps) {
                     try {
-                        const targetId = window.effectiveAppId;
-                        await window.firebaseOps.deleteDoc(
-                            window.firebaseOps.doc(window.db, 'artifacts', targetId, 'public', 'data', 'marketing_posts', id)
-                        );
-                    } catch(e) {}
-                }
-                
-                this.closeModal();
-                this.showToast('Item excluído.');
-            },
-
-            editById(id) {
-                const item = this.data.find(i => i.id === id);
-                if(item) this.openModal(item);
-            },
-
-            async toggleStatus(id) {
-                const item = this.data.find(i => i.id === id);
-                if(!item) return;
-
-                if (item.status === 'done') {
-                    item.status = 'pending';
-                    item.completedDate = null;
-                    await this.saveItemGeneric(item, 'Status revertido');
-                } else {
-                    this.triggerCompletion(id);
+                        const ref = window.firebaseOps.doc(window.db, 'artifacts', window.effectiveAppId, 'public', 'data', 'marketing_posts', id);
+                        await window.firebaseOps.deleteDoc(ref);
+                    } catch(e) { console.error(e); }
                 }
             },
 
-            triggerCompletion(id) {
-                this.pendingCompletionId = id;
-                const now = new Date();
-                const today = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
-                document.getElementById('completion-date-input').value = today;
-                document.getElementById('completion-modal').classList.remove('hidden');
+            saveLocal() {
+                localStorage.setItem('marketingPlannerData_offline', JSON.stringify(this.data));
             },
 
-            closeCompletionModal() {
-                document.getElementById('completion-modal').classList.add('hidden');
-                this.pendingCompletionId = null;
-                this.pendingNewItem = null;
-                const btnSave = document.getElementById('btn-save-post');
-                if(btnSave) {
-                    btnSave.disabled = false;
-                    const saveText = document.getElementById('save-text');
-                    if(saveText) saveText.innerText = 'Salvar';
-                }
+            generateId() {
+                return Date.now().toString(36) + Math.random().toString(36).substring(2);
             },
 
-            async confirmCompletion() {
-                const date = document.getElementById('completion-date-input').value;
-                if (!date) {
-                    alert('Por favor, informe a data.');
-                    return;
-                }
-                
-                let targetItem = null;
-
-                if (this.pendingNewItem) {
-                    this.pendingNewItem.status = 'done';
-                    this.pendingNewItem.completedDate = date;
-                    targetItem = this.pendingNewItem;
-                    this.closeModal();
-                } else if (this.pendingCompletionId) {
-                    const item = this.data.find(i => i.id === this.pendingCompletionId);
-                    if(item) {
-                        item.status = 'done';
-                        item.completedDate = date;
-                        targetItem = item;
-                    }
-                }
-                
-                if(targetItem) {
-                    await this.saveItemGeneric(targetItem, 'Concluído!');
-                    this.celebrate();
-                }
-                
-                this.closeCompletionModal();
-            },
-
-            celebrate() {
-                const duration = 2000;
-                const end = Date.now() + duration;
-                (function frame() {
-                    confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24'] });
-                    confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#4F46E5', '#C13584', '#FF0000', '#fbbf24'] });
-                    if (Date.now() < end) requestAnimationFrame(frame);
-                }());
-                const randomQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
-                this.showToast('Tarefa Concluída!', randomQuote, true);
-            },
-
-            toggleTheme() {
-                document.documentElement.classList.toggle('dark');
-                if(document.documentElement.classList.contains('dark')) {
-                    localStorage.setItem('theme', 'dark');
-                } else {
-                    localStorage.setItem('theme', 'light');
-                }
+            refreshAll() {
                 this.renderDashboard();
+                this.renderTraffic();
+                this.renderActivities();
+                this.renderIdeas();
+                if(!document.getElementById('view-calendar').classList.contains('hidden')) this.initCalendar();
             },
 
-            exportCSV() {
-                this.backupData();
+            // --- OUTRAS VIEWS ---
+            initCalendar() {
+                setTimeout(() => {
+                    const calendarEl = document.getElementById('calendar');
+                    if (this.calendarInstance) this.calendarInstance.destroy();
+                    this.calendarInstance = new FullCalendar.Calendar(calendarEl, {
+                        initialView: 'dayGridMonth',
+                        locale: 'pt-br',
+                        events: this.data
+                            .filter(i => (!i.docType || i.docType === 'post'))
+                            .map(i => ({ title: i.title, start: i.date, color: i.status === 'done' ? '#10b981' : '#4F46E5' }))
+                    });
+                    this.calendarInstance.render();
+                }, 100);
             },
 
-            showToast(msg, subMsg = '', isSuccess = false) {
-                const toast = document.getElementById('toast');
-                if(!toast) return;
-                document.getElementById('toast-msg').innerText = msg;
-                const subEl = document.getElementById('toast-sub');
-                const iconEl = document.getElementById('toast-icon');
-
-                if(subMsg) { subEl.innerText = subMsg; subEl.classList.remove('hidden'); } else { subEl.classList.add('hidden'); }
-                if(isSuccess) { iconEl.classList.remove('hidden'); } else { iconEl.classList.add('hidden'); }
-
-                toast.classList.remove('opacity-0', 'translate-y-20');
-                const duration = subMsg ? 5000 : 3000;
-                setTimeout(() => { toast.classList.add('opacity-0', 'translate-y-20'); }, duration);
+            addIdea() {
+                const txt = document.getElementById('new-idea-text').value;
+                if(!txt) return;
+                const today = new Date();
+                const y = today.getFullYear();
+                const m = String(today.getMonth() + 1).padStart(2, '0');
+                const d = String(today.getDate()).padStart(2, '0');
+                this.saveItemGeneric({ id: this.generateId(), docType: 'idea_draft', title: txt, date: `${y}-${m}-${d}` });
+                document.getElementById('new-idea-text').value = '';
             },
-            
-            // --- Cloud Config ---
+
+            renderIdeas() {
+                const div = document.getElementById('ideas-list');
+                div.innerHTML = this.data.filter(i => i.docType === 'idea_draft').map(i => 
+                    `<div class="p-2 border rounded flex justify-between bg-white dark:bg-gray-800 dark:border-gray-700">
+                        <span>${i.title}</span> 
+                        <button onclick="app.deleteItemGeneric('${i.id}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    </div>`
+                ).join('');
+            },
+
+            // --- PDF REPORTS ---
+            exportContentPDF() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text("Relatório de Produção de Conteúdo", 14, 20);
+                
+                const rows = this.getFilteredData()
+                    .filter(i => (!i.docType || i.docType === 'post'))
+                    .map(i => [i.date.split('-').reverse().join('/'), i.platform, i.title, i.status === 'done' ? 'Feito' : 'Pendente']);
+                
+                doc.autoTable({ 
+                    head: [['Data', 'Canal', 'Título', 'Status']], 
+                    body: rows, 
+                    startY: 30,
+                    theme: 'grid'
+                });
+                doc.save('relatorio_conteudo.pdf');
+            },
+
+            exportTrafficPDF() {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.text("Relatório de Investimento em Tráfego", 14, 20);
+                
+                const rows = this.getFilteredData()
+                    .filter(i => i.docType === 'traffic')
+                    .map(i => [
+                        i.date.split('-').reverse().join('/'), 
+                        i.platform, 
+                        parseFloat(i.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+                        i.paymentMethod,
+                        i.notes || ''
+                    ]);
+                
+                doc.autoTable({ 
+                    head: [['Data', 'Plataforma', 'Valor', 'Forma Pagto', 'Notas']], 
+                    body: rows, 
+                    startY: 30,
+                    theme: 'striped',
+                    headStyles: { fillColor: [5, 150, 105] } // Emerald color
+                });
+                doc.save('relatorio_trafego.pdf');
+            },
+
+            // FIXED: Missing implementation of Config Save in previous file
             saveCustomConfig() {
-                // 1. Config Firebase
                 const input = document.getElementById('custom-config-input');
                 let val = input.value.trim();
                 
@@ -1894,17 +1141,13 @@
                     };
 
                     parsed.apiKey = extract(val, 'apiKey');
-                    parsed.authDomain = extract(val, 'authDomain');
                     parsed.projectId = extract(val, 'projectId');
-                    parsed.storageBucket = extract(val, 'storageBucket');
-                    parsed.messagingSenderId = extract(val, 'messagingSenderId');
-                    parsed.appId = extract(val, 'appId');
 
-                    if (!parsed.apiKey || !parsed.projectId) {
+                    if (!parsed.apiKey) {
                         try {
                             const firstBrace = val.indexOf('{');
                             const lastBrace = val.lastIndexOf('}');
-                            if (firstBrace > -1 && lastBrace > -1) {
+                            if (firstBrace > -1) {
                                 const jsonStr = val.substring(firstBrace, lastBrace + 1);
                                 const fn = new Function("return " + jsonStr);
                                 const obj = fn();
@@ -1913,16 +1156,15 @@
                         } catch(e) {}
                     }
 
-                    if (parsed.apiKey && parsed.projectId) {
+                    if (parsed.apiKey) {
                         localStorage.setItem('custom_firebase_config', JSON.stringify(parsed));
                         alert('Configuração salva com sucesso! Recarregando...');
                     } else {
-                        alert("Não foi possível ler a configuração. Certifique-se de copiar o objeto { ... } completo do Firebase.");
+                        alert("Não foi possível ler a configuração. Certifique-se de copiar o objeto correto.");
                         return;
                     }
                 }
 
-                // 2. Room ID (Nome da Sala)
                 const roomInput = document.getElementById('custom-room-id-input');
                 const roomId = roomInput.value.trim();
                 if(roomId) {
@@ -1930,24 +1172,56 @@
                 } else {
                     localStorage.removeItem('custom_room_id');
                 }
-
                 location.reload();
             },
-            
+
             clearCustomConfig() {
-                if(confirm("Desconectar do Firebase personalizado e limpar Sala?")) {
+                if(confirm("Resetar configurações e limpar sala local?")) {
                     localStorage.removeItem('custom_firebase_config');
                     localStorage.removeItem('custom_room_id');
                     location.reload();
                 }
+            },
+
+            // Sala e Auth
+            shareLink() {
+                const url = `${window.location.origin}${window.location.pathname}?room=${window.effectiveAppId}`;
+                navigator.clipboard.writeText(url).then(() => alert("Link copiado!"));
+            },
+            openJoinModal() { document.getElementById('join-room-modal').classList.remove('hidden'); },
+            closeJoinModal() { document.getElementById('join-room-modal').classList.add('hidden'); },
+            confirmJoinRoom() {
+                const code = normalizeRoomId(document.getElementById('manual-room-input').value);
+                if(code) {
+                    localStorage.setItem('custom_room_id', code);
+                    window.location.href = window.location.origin + window.location.pathname + "?room=" + code;
+                }
+            },
+            toggleTheme() {
+                document.documentElement.classList.toggle('dark');
+                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                this.renderCharts(this.data.filter(i=>!i.docType||i.docType==='post'), {}); 
+            },
+            setupRealtimeListener() {
+                if (!window.firebaseOps) return;
+                const q = window.firebaseOps.query(window.firebaseOps.collection(window.db, 'artifacts', window.effectiveAppId, 'public', 'data', 'marketing_posts'));
+                window.firebaseOps.onSnapshot(q, (snapshot) => {
+                    const cloudData = [];
+                    snapshot.forEach(doc => cloudData.push({ id: doc.id, ...doc.data() }));
+                    this.data = cloudData;
+                    this.saveLocal();
+                    this.refreshAll();
+                });
+            },
+            handleConnectionClick() {
+                const el = document.getElementById('connection-status');
+                if(el && el.innerHTML.includes('Erro')) initFirebaseConnection();
+                else app.navigate('backup');
             }
         };
-        
-        window.app = app;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            app.init();
-        });
+        window.app = app;
+        document.addEventListener('DOMContentLoaded', () => app.init());
     </script>
 </body>
 </html>
