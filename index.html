@@ -21,6 +21,9 @@
                         youtube: '#FF0000',
                         tiktok: '#000000',
                         linkedin: '#0077b5'
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                     }
                 }
             }
@@ -76,13 +79,13 @@
         // 2. ID da Sala (Sync ID) via URL ou LocalStorage
         const defaultAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         
-        // Lógica de Detecção da Sala: URL tem prioridade > LocalStorage > Padrão
+        // Lógica de Detecção da Sala (Prioridade: URL > LocalStorage > Default)
         const urlParams = new URLSearchParams(window.location.search);
         const urlRoomId = urlParams.get('room');
         let localRoomId = localStorage.getItem('custom_room_id');
 
-        // Se veio link com sala, atualiza o local
-        if (urlRoomId) {
+        // Se veio link com sala, atualiza o local imediatamente
+        if (urlRoomId && urlRoomId !== localRoomId) {
             localRoomId = urlRoomId;
             localStorage.setItem('custom_room_id', urlRoomId);
         }
@@ -184,17 +187,25 @@
                     Plano de MKT
                 </span>
                 
-                <!-- Room Display with Copy -->
-                <div onclick="app.shareLink()" class="mt-3 px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded text-[10px] font-mono text-indigo-700 dark:text-indigo-300 w-full text-center cursor-pointer hover:bg-indigo-100 transition group relative" title="Clique para copiar link">
-                    <span id="room-display-text">Sala: Padrão</span>
-                    <i class="fa-solid fa-copy ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                <!-- Room Display (BIGGER AND CLEARER) -->
+                <div class="mt-4 w-full">
+                    <div class="text-[10px] uppercase text-gray-500 font-bold mb-1 text-center">Código da Sala Atual</div>
+                    <div onclick="app.shareLink()" class="px-2 py-2 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 rounded text-sm font-mono font-bold text-indigo-700 dark:text-indigo-300 w-full text-center cursor-pointer hover:bg-indigo-200 transition group relative break-all" title="Clique para copiar link">
+                        <span id="room-display-text">...</span>
+                        <i class="fa-solid fa-copy ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+                    </div>
                 </div>
+
+                <!-- Manual Join Button -->
+                <button onclick="app.openJoinModal()" class="mt-2 text-xs text-gray-500 hover:text-indigo-600 underline">
+                    Trocar / Entrar em Sala Manualmente
+                </button>
             </div>
 
             <nav class="flex-1 p-4 space-y-2">
                 <!-- Share Button Prominent -->
-                <button onclick="app.shareLink()" class="w-full flex items-center justify-center p-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold shadow-sm transition mb-4 animate-pulse-slow">
-                    <i class="fa-solid fa-share-nodes mr-2"></i> Convidar Equipe
+                <button onclick="app.shareLink()" class="w-full flex items-center justify-center p-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold shadow-sm transition mb-4">
+                    <i class="fa-solid fa-share-nodes mr-2"></i> Copiar Link
                 </button>
 
                 <button onclick="app.navigate('dashboard')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors hover:bg-indigo-50 dark:hover:bg-gray-700 text-indigo-600 font-medium bg-indigo-50 dark:bg-gray-700" data-target="dashboard">
@@ -241,7 +252,10 @@
                 <div class="flex items-center gap-3">
                     <div class="flex flex-col">
                         <span class="font-bold text-gray-900 dark:text-white leading-tight">ReVive Assessoria</span>
-                        <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Plano de MKT</span>
+                        <!-- Mobile Room ID Display -->
+                        <span onclick="app.openJoinModal()" class="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded cursor-pointer" id="mobile-room-display">
+                            Sala: Carregando...
+                        </span>
                     </div>
                 </div>
                 <div class="flex gap-4">
@@ -455,7 +469,7 @@
                     <div class="mb-6">
                         <h2 class="text-2xl font-bold mb-2">Configuração de Nuvem e Sincronização</h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Compartilhe o link do projeto para convidar pessoas.
+                            Compartilhe o código da sala para convidar pessoas.
                         </p>
                     </div>
 
@@ -469,10 +483,15 @@
                          </div>
                          
                          <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                             Use este botão para copiar um link direto. Qualquer pessoa com o link terá acesso aos dados deste projeto em tempo real.
+                             O jeito mais seguro de conectar é usando o código abaixo. Se o link falhar, a pessoa pode clicar em "Trocar Sala" no menu e digitar este código.
                          </p>
 
-                         <button onclick="app.shareLink()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold shadow-md transition flex items-center gap-2 mb-6">
+                         <!-- Manual Join Button -->
+                         <button onclick="app.openJoinModal()" class="w-full md:w-auto mb-4 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-6 py-3 rounded-lg font-bold shadow-sm transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-arrow-right-to-bracket"></i> Digitar Código de Outra Sala
+                        </button>
+
+                         <button onclick="app.shareLink()" class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold shadow-md transition flex items-center justify-center gap-2 mb-6">
                              <i class="fa-solid fa-link"></i> Copiar Link de Convite
                          </button>
 
@@ -637,6 +656,30 @@
         </div>
     </div>
 
+    <!-- JOIN ROOM MODAL (MANUAL) -->
+    <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900 bg-opacity-80 transition-opacity backdrop-blur-sm" onclick="app.closeJoinModal()"></div>
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4 text-center">
+                <div class="relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 text-left shadow-xl transition-all sm:w-full sm:max-w-sm border border-indigo-500">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-center text-gray-900 dark:text-gray-100 mb-4">Entrar em uma Sala</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">Digite o código da sala que você quer acessar:</p>
+                        
+                        <input type="text" id="manual-room-input" placeholder="Ex: projeto-alpha-123" class="w-full text-center text-lg font-mono p-3 rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border uppercase">
+                        
+                        <button type="button" onclick="app.confirmJoinRoom()" class="w-full mt-4 justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition">
+                            Entrar na Sala
+                        </button>
+                        <button type="button" onclick="app.closeJoinModal()" class="w-full mt-2 justify-center rounded-md bg-white dark:bg-gray-700 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- COMPLETION DATE MODAL -->
     <div id="completion-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-gray-900 bg-opacity-80 transition-opacity backdrop-blur-sm"></div>
@@ -722,10 +765,13 @@
                 
                 document.getElementById('custom-room-id-input').value = isDefault ? '' : displayName;
                 
+                // Atualiza displays de sala (Desktop e Mobile)
                 const displayEl = document.getElementById('room-display-text');
-                if(displayEl) {
-                     displayEl.innerText = isDefault ? 'Sala: Padrão' : `Sala: ${displayName.substring(0, 12)}${displayName.length > 12 ? '...' : ''}`;
-                }
+                const mobileDisplayEl = document.getElementById('mobile-room-display');
+                
+                const roomText = isDefault ? 'Padrão' : displayName;
+                if(displayEl) displayEl.innerText = roomText;
+                if(mobileDisplayEl) mobileDisplayEl.innerText = `Sala: ${roomText.substring(0, 10)}...`;
 
                 // UI setup
                 document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -748,7 +794,29 @@
                 }, 500);
             },
             
-            // --- NOVA FUNÇÃO DE COMPARTILHAMENTO ---
+            // --- MANUA JOIN LOGIC ---
+            openJoinModal() {
+                document.getElementById('join-room-modal').classList.remove('hidden');
+            },
+
+            closeJoinModal() {
+                document.getElementById('join-room-modal').classList.add('hidden');
+            },
+
+            confirmJoinRoom() {
+                const code = document.getElementById('manual-room-input').value.trim();
+                if(!code) return;
+                
+                if(confirm(`Entrar na sala "${code}"? O sistema será recarregado.`)) {
+                    localStorage.setItem('custom_room_id', code);
+                    // Atualiza URL para refletir a nova sala
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('room', code);
+                    window.location.href = newUrl.toString(); // Força reload completo com novo URL
+                }
+            },
+
+            // --- FUNÇÃO DE COMPARTILHAMENTO ---
             shareLink() {
                 // 1. Verifica se já tem uma sala customizada
                 let roomId = window.effectiveAppId;
@@ -756,23 +824,25 @@
                 
                 // Se estiver no padrão, gera uma nova sala
                 if (roomId === defaultId) {
-                    roomId = 'proj-' + Math.random().toString(36).substring(2, 9);
+                    roomId = 'PROJ-' + Math.random().toString(36).substring(2, 7).toUpperCase();
                     localStorage.setItem('custom_room_id', roomId);
                     window.effectiveAppId = roomId;
                     
-                    // Atualiza URL sem reload para ficar bonito
+                    // Atualiza URL
                     const newUrl = new URL(window.location);
                     newUrl.searchParams.set('room', roomId);
                     window.history.pushState({}, '', newUrl);
                     
-                    // Atualiza a UI para refletir a nova sala
-                    document.getElementById('room-display-text').innerText = `Sala: ${roomId}`;
+                    // Atualiza UI
+                    document.getElementById('room-display-text').innerText = roomId;
+                    document.getElementById('mobile-room-display').innerText = `Sala: ${roomId}`;
+                    
                     this.showToast('Nova sala criada!', 'Conectando...', true);
                     
-                    // Reconecta na nova sala
+                    // Reconecta
                     setTimeout(() => {
-                        window.location.reload(); // Reload para garantir conexão limpa na nova sala
-                    }, 1000);
+                        window.location.reload(); 
+                    }, 500);
                     return;
                 }
 
@@ -782,9 +852,9 @@
                 
                 // 3. Copia para Clipboard
                 navigator.clipboard.writeText(shareUrl).then(() => {
-                    this.showToast('Link Copiado!', 'Envie para sua equipe entrar na sala.', true);
+                    this.showToast('Link Copiado!', `Sala: ${roomId}`, true);
                 }).catch(err => {
-                    prompt("Copie este link manualmente:", shareUrl);
+                    prompt(`Copie o link (Sala: ${roomId}):`, shareUrl);
                 });
             },
 
@@ -793,7 +863,11 @@
                 if(!el) return;
                 
                 if (status === 'success') {
-                    el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1"><i class="fa-solid fa-cloud"></i> ${msg}</span>`;
+                    // Mostra em qual sala está conectado
+                    const isDefault = window.effectiveAppId === (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
+                    const roomName = isDefault ? 'Padrão' : window.effectiveAppId;
+                    
+                    el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> Online (${roomName.substring(0,6)}..)</span>`;
                     // Remove modo offline ao conectar com sucesso
                     this.offlineMode = false;
                 } else if (status === 'error') {
