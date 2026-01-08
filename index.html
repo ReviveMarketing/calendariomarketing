@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark"> <!-- Forçando Dark Mode para o tema Futurista -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,10 +13,23 @@
             theme: {
                 extend: {
                     colors: {
+                        slate: {
+                            850: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617', // Fundo profundo
+                        },
+                        neon: {
+                            blue: '#06b6d4',   // Cyan
+                            purple: '#8b5cf6', // Violet
+                            green: '#10b981',  // Emerald
+                            red: '#f43f5e',    // Rose
+                            yellow: '#f59e0b', // Amber
+                        },
                         brand: {
                             light: '#4F46E5',
                             dark: '#4338ca',
                         },
+                        // Cores Redes Sociais
                         instagram: '#C13584',
                         youtube: '#FF0000',
                         tiktok: '#000000',
@@ -24,14 +37,18 @@
                         meta: '#0668E1',
                         google: '#4285F4'
                     },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
                     keyframes: {
                         fadeIn: {
                             '0%': { opacity: '0', transform: 'translateY(10px)' },
                             '100%': { opacity: '1', transform: 'translateY(0)' },
                         }
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.5s ease-out forwards',
                     }
                 }
             }
@@ -56,6 +73,72 @@
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Estilo Futurista Base */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #020617; /* Slate 950 */
+            color: #f1f5f9;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.15) 0px, transparent 50%), 
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6); /* Slate 900 com opacidade */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .glass-sidebar {
+            background: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Scrollbar Moderna */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* FullCalendar Customization para Dark Theme */
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #1e293b !important; }
+        .fc-day-today { background-color: rgba(6, 182, 212, 0.05) !important; } /* Neon Blue Tint */
+        .fc-button-primary { 
+            background-color: #4F46E5 !important; 
+            border: none !important; 
+            box-shadow: 0 0 10px rgba(79, 70, 229, 0.3);
+        }
+        .fc-toolbar-title { color: #f8fafc; font-weight: 700; }
+        .fc-col-header-cell-cushion { color: #94a3b8; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
+        .fc-daygrid-day-number { color: #cbd5e1; }
+
+        /* Inputs Customizados */
+        input, select, textarea {
+            background-color: rgba(30, 41, 59, 0.5) !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #06b6d4 !important; /* Neon Blue */
+            ring-color: #06b6d4 !important;
+            box-shadow: 0 0 0 1px #06b6d4;
+            outline: none;
+        }
+        
+        /* Gradients de Texto */
+        .text-gradient {
+            background: linear-gradient(to right, #22d3ee, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
 
     <!-- Tratamento de Erros -->
     <script>
@@ -110,7 +193,7 @@
 
         async function initFirebaseConnection() {
             const statusEl = document.getElementById('connection-status');
-            if(statusEl) statusEl.innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> Iniciando...</span>';
+            if(statusEl) statusEl.innerHTML = '<span class="text-neon-yellow flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> Conectando...</span>';
 
             if (Object.keys(activeConfig).length === 0) {
                 if(window.app) window.app.updateConnectionUI('missing_config', 'Sem Configuração');
@@ -130,8 +213,6 @@
                 window.auth = auth;
                 window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, query, signInAnonymously };
 
-                if(statusEl) statusEl.innerHTML = '<span class="text-yellow-600 flex items-center gap-1"><i class="fa-solid fa-spinner fa-spin"></i> Autenticando...</span>';
-                
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
@@ -140,7 +221,7 @@
 
                 console.log(`Conectado: ${window.effectiveAppId}`);
                 if(window.app) {
-                    window.app.updateConnectionUI('success', 'Nuvem Conectada');
+                    window.app.updateConnectionUI('success', 'Online e Sincronizado');
                     window.app.setupRealtimeListener();
                 }
 
@@ -152,299 +233,336 @@
             }
         }
     </script>
-
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .dark ::-webkit-scrollbar-thumb { background: #475569; }
-        .fc-theme-standard td, .fc-theme-standard th { border-color: #e2e8f0; }
-        .dark .fc-theme-standard td, .dark .fc-theme-standard th { border-color: #334155; }
-        .fc-day-today { background-color: #f1f5f9 !important; }
-        .dark .fc-day-today { background-color: #1e293b !important; }
-        .fc-button-primary { background-color: #4F46E5 !important; border-color: #4F46E5 !important; }
-    </style>
 </head>
-<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200">
+<body class="transition-colors duration-200 overflow-hidden">
 
-    <div id="global-error-banner" class="hidden bg-red-600 text-white p-3 text-center text-sm font-bold sticky top-0 z-[100] shadow-lg"></div>
+    <div id="global-error-banner" class="hidden bg-red-600/90 backdrop-blur text-white p-3 text-center text-sm font-bold sticky top-0 z-[100] shadow-lg border-b border-red-400"></div>
 
-    <div class="flex h-screen overflow-hidden">
+    <div class="flex h-screen">
         
         <!-- Sidebar -->
-        <aside class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col z-10">
-            <div class="p-6 flex flex-col items-center justify-center border-b border-gray-200 dark:border-gray-700 text-center relative">
-                <div id="status-dot" class="absolute top-4 right-4 w-3 h-3 rounded-full bg-gray-300" title="Status"></div>
-                <h1 class="text-xl font-bold text-gray-900 dark:text-white tracking-tight leading-tight">ReVive Assessoria</h1>
-                <span class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mt-1">Gestão 360º</span>
+        <aside class="w-64 glass-sidebar hidden md:flex flex-col z-20 relative shadow-2xl">
+            <!-- Decorative Glow -->
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-blue to-neon-purple opacity-70"></div>
+
+            <div class="p-8 flex flex-col items-center justify-center border-b border-white/5 text-center relative">
+                <div id="status-dot" class="absolute top-4 right-4 w-2 h-2 rounded-full bg-slate-600 shadow-[0_0_8px_rgba(255,255,255,0.2)]" title="Status"></div>
                 
-                <div class="mt-4 w-full">
-                    <div class="text-[10px] uppercase text-gray-500 font-bold mb-1 text-center">Sala Atual</div>
-                    <div onclick="app.shareLink()" class="px-2 py-2 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-700 rounded text-sm font-mono font-bold text-indigo-700 dark:text-indigo-300 w-full text-center cursor-pointer hover:bg-indigo-200 transition" title="Copiar Link">
+                <h1 class="text-2xl font-bold tracking-tight leading-tight text-white drop-shadow-md">
+                    <span class="text-gradient">ReVive</span>
+                </h1>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Assessoria 360º</span>
+                
+                <div class="mt-6 w-full group">
+                    <div class="text-[9px] uppercase text-slate-500 font-bold mb-1 text-center tracking-wider">Sala de Comando</div>
+                    <div onclick="app.shareLink()" class="px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-lg text-xs font-mono font-medium text-neon-blue w-full text-center cursor-pointer hover:bg-neon-blue/10 hover:border-neon-blue/30 transition-all duration-300 relative overflow-hidden" title="Copiar Link">
                         <span id="room-display-text">...</span>
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                     </div>
                 </div>
-                <button onclick="app.openJoinModal()" class="mt-2 text-xs text-gray-500 hover:text-indigo-600 underline">Trocar Sala</button>
+                <button onclick="app.openJoinModal()" class="mt-3 text-[10px] text-slate-500 hover:text-white transition-colors uppercase tracking-wide">Trocar Sala</button>
             </div>
 
-            <nav class="flex-1 p-4 space-y-2">
-                <button onclick="app.navigate('dashboard')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors font-medium" data-target="dashboard">
-                    <i class="fa-solid fa-chart-pie w-6"></i> Dashboard
+            <nav class="flex-1 p-4 space-y-2 mt-2">
+                <button onclick="app.navigate('dashboard')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-white/5 text-slate-400 hover:text-white group" data-target="dashboard">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-neon-blue/20 group-hover:text-neon-blue transition-colors">
+                        <i class="fa-solid fa-chart-pie text-sm"></i>
+                    </div>
+                    <span class="font-medium text-sm">Dashboard</span>
                 </button>
-                <button onclick="app.navigate('traffic')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors font-medium text-emerald-600" data-target="traffic">
-                    <i class="fa-solid fa-rocket w-6"></i> Tráfego Pago
+                <button onclick="app.navigate('traffic')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-white/5 text-slate-400 hover:text-white group" data-target="traffic">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-neon-green/20 group-hover:text-neon-green transition-colors">
+                        <i class="fa-solid fa-rocket text-sm"></i>
+                    </div>
+                    <span class="font-medium text-sm">Tráfego Pago</span>
                 </button>
-                <button onclick="app.navigate('calendar')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors" data-target="calendar">
-                    <i class="fa-solid fa-calendar-days w-6"></i> Calendário
+                <button onclick="app.navigate('calendar')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-white/5 text-slate-400 hover:text-white group" data-target="calendar">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-neon-purple/20 group-hover:text-neon-purple transition-colors">
+                        <i class="fa-solid fa-calendar-days text-sm"></i>
+                    </div>
+                    <span class="font-medium text-sm">Calendário</span>
                 </button>
-                <button onclick="app.navigate('activities')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors" data-target="activities">
-                    <i class="fa-solid fa-list-check w-6"></i> Conteúdo
+                <button onclick="app.navigate('activities')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-white/5 text-slate-400 hover:text-white group" data-target="activities">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-neon-yellow/20 group-hover:text-neon-yellow transition-colors">
+                        <i class="fa-solid fa-list-check text-sm"></i>
+                    </div>
+                    <span class="font-medium text-sm">Conteúdo</span>
                 </button>
-                <button onclick="app.navigate('ideas')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors" data-target="ideas">
-                    <i class="fa-solid fa-lightbulb w-6"></i> Ideias
+                <button onclick="app.navigate('ideas')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-white/5 text-slate-400 hover:text-white group" data-target="ideas">
+                    <div class="w-8 h-8 rounded-lg bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-pink-500/20 group-hover:text-pink-500 transition-colors">
+                        <i class="fa-solid fa-lightbulb text-sm"></i>
+                    </div>
+                    <span class="font-medium text-sm">Ideias</span>
                 </button>
-                <button onclick="app.navigate('backup')" class="nav-item w-full flex items-center p-3 rounded-lg text-left transition-colors mt-4 border-t border-gray-100 dark:border-gray-700 pt-4 text-xs" data-target="backup">
-                    <i class="fa-solid fa-gear w-6"></i> Config
-                </button>
+                
+                <div class="pt-4 mt-4 border-t border-white/5">
+                    <button onclick="app.navigate('backup')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-white/5 text-slate-500 hover:text-white group text-xs" data-target="backup">
+                        <i class="fa-solid fa-gear w-4 mr-3 text-center"></i> Configurações
+                    </button>
+                </div>
             </nav>
 
-            <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
-                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-gray-50 dark:bg-gray-900/50 cursor-pointer" onclick="app.handleConnectionClick()">
-                    <span id="connection-status" class="flex items-center gap-1 text-gray-500 font-mono text-[10px]"><i class="fa-solid fa-laptop"></i> ...</span>
+            <div class="p-4 border-t border-white/5">
+                <div class="w-full text-xs text-center mb-2 flex items-center justify-center gap-2 p-2 rounded bg-slate-900/50 border border-white/5 cursor-pointer hover:border-neon-blue/30 transition-colors" onclick="app.handleConnectionClick()">
+                    <span id="connection-status" class="flex items-center gap-1 text-slate-400 font-mono text-[10px]"><i class="fa-solid fa-laptop"></i> Inicializando...</span>
                 </div>
-                <button onclick="app.toggleTheme()" class="w-full flex items-center justify-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                    <i class="fa-solid fa-moon dark:hidden mr-2"></i><i class="fa-solid fa-sun hidden dark:inline mr-2 text-yellow-400"></i> <span class="text-sm">Tema</span>
-                </button>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto relative bg-gray-50 dark:bg-gray-900">
+        <main class="flex-1 overflow-y-auto relative z-10">
             <!-- Mobile Header -->
-            <header class="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center sticky top-0 z-20">
+            <header class="md:hidden glass-panel border-b-0 sticky top-0 z-30 px-4 py-3 flex justify-between items-center m-2 rounded-xl">
                 <div class="flex flex-col">
-                    <span class="font-bold text-gray-900 dark:text-white">ReVive</span>
-                    <span id="mobile-room-display" class="text-[10px] text-indigo-500 font-mono">...</span>
+                    <span class="font-bold text-white tracking-tight">ReVive</span>
+                    <span id="mobile-room-display" class="text-[10px] text-neon-blue font-mono">...</span>
                 </div>
-                <div class="flex gap-4">
-                    <div id="mobile-status-dot" class="w-3 h-3 rounded-full bg-gray-300 mt-2"></div>
-                    <button id="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
+                <div class="flex gap-4 items-center">
+                    <div id="mobile-status-dot" class="w-2 h-2 rounded-full bg-slate-500 shadow-glow"></div>
+                    <button id="mobile-menu-btn" class="text-white"><i class="fa-solid fa-bars"></i></button>
                 </div>
             </header>
 
-            <div class="p-4 md:p-8 max-w-7xl mx-auto pb-24">
+            <div class="p-4 md:p-8 max-w-[1400px] mx-auto pb-24">
 
                 <!-- 1. DASHBOARD VIEW -->
                 <div id="view-dashboard" class="view-section animate-fade-in hidden">
                     
-                    <!-- GLOBAL DATE FILTER -->
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 flex flex-col md:flex-row items-end md:items-center gap-4 justify-between">
-                        <div class="flex flex-col md:flex-row gap-4 w-full">
-                            <div class="flex-1">
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Analisar de:</label>
-                                <input type="date" id="filter-start-date" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-2 text-sm">
+                    <!-- Header & Date Filter -->
+                    <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8">
+                        <div>
+                            <h2 class="text-3xl font-bold text-white mb-1">Visão Geral</h2>
+                            <p class="text-sm text-slate-400 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-neon-blue animate-pulse"></span>
+                                Monitoramento em Tempo Real
+                            </p>
+                        </div>
+
+                        <div class="glass-panel p-2 rounded-xl flex flex-col md:flex-row gap-2 w-full xl:w-auto">
+                            <div class="flex items-center gap-2 px-2">
+                                <span class="text-xs font-bold text-slate-500 uppercase">Período:</span>
                             </div>
-                            <div class="flex-1">
-                                <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Até:</label>
-                                <input type="date" id="filter-end-date" class="w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 p-2 text-sm">
-                            </div>
-                            <div class="flex items-end gap-2">
-                                <button onclick="app.applyDateFilter()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow transition h-[38px]">
-                                    <i class="fa-solid fa-filter mr-1"></i> Filtrar
-                                </button>
-                                <button onclick="app.setCurrentMonthFilter()" class="bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium transition h-[38px]">
-                                    Mês Atual
-                                </button>
-                            </div>
+                            <input type="date" id="filter-start-date" class="bg-slate-800/50 border-0 rounded-lg text-xs p-2 w-full md:w-auto text-slate-300">
+                            <span class="text-slate-600 self-center hidden md:inline">→</span>
+                            <input type="date" id="filter-end-date" class="bg-slate-800/50 border-0 rounded-lg text-xs p-2 w-full md:w-auto text-slate-300">
+                            <button onclick="app.applyDateFilter()" class="bg-neon-blue/10 hover:bg-neon-blue/20 text-neon-blue border border-neon-blue/30 px-4 py-2 rounded-lg text-xs font-bold transition-all">
+                                Filtrar
+                            </button>
+                            <button onclick="app.setCurrentMonthFilter()" class="text-slate-400 hover:text-white px-3 py-2 text-xs font-medium transition-colors">
+                                Mês Atual
+                            </button>
                         </div>
                     </div>
 
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold">Visão Geral</h2>
-                        <span class="text-xs font-mono bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-1 rounded" id="current-filter-label">Filtro: Todo o Período</span>
-                    </div>
-
                     <!-- KPI Cards Row 1: Financeiro -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <!-- Investimento Tráfego -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
-                            <div class="absolute right-0 top-0 h-full w-2 bg-emerald-500"></div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Investimento em Tráfego</p>
-                            <h3 class="text-3xl font-bold mt-1 text-emerald-600 dark:text-emerald-400 truncate" id="kpi-traffic">R$ 0,00</h3>
-                            <div class="absolute right-4 bottom-4 opacity-10 group-hover:opacity-20 transition text-emerald-600 text-5xl">
-                                <i class="fa-solid fa-rocket"></i>
+                        <div class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:border-neon-green/30 transition-all duration-300">
+                            <div class="absolute right-0 top-0 w-32 h-32 bg-neon-green/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-neon-green/20"></div>
+                            <div class="relative z-10">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="p-3 bg-neon-green/10 rounded-xl text-neon-green">
+                                        <i class="fa-solid fa-rocket text-xl"></i>
+                                    </div>
+                                    <span class="text-xs font-mono text-neon-green bg-neon-green/10 px-2 py-1 rounded">ADS</span>
+                                </div>
+                                <p class="text-sm text-slate-400 font-medium">Investimento em Tráfego</p>
+                                <h3 class="text-3xl font-bold mt-1 text-white tracking-tight" id="kpi-traffic">R$ 0,00</h3>
                             </div>
                         </div>
 
                         <!-- Custo Conteúdo -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
-                            <div class="absolute right-0 top-0 h-full w-2 bg-indigo-500"></div>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Custo Produção (Conteúdo)</p>
-                            <h3 class="text-3xl font-bold mt-1 text-indigo-600 dark:text-indigo-400 truncate" id="kpi-content-cost">R$ 0,00</h3>
-                            <div class="absolute right-4 bottom-4 opacity-10 group-hover:opacity-20 transition text-indigo-600 text-5xl">
-                                <i class="fa-solid fa-video"></i>
+                        <div class="glass-panel p-6 rounded-2xl relative overflow-hidden group hover:border-neon-blue/30 transition-all duration-300">
+                            <div class="absolute right-0 top-0 w-32 h-32 bg-neon-blue/10 rounded-full blur-2xl -mr-10 -mt-10 transition-all group-hover:bg-neon-blue/20"></div>
+                            <div class="relative z-10">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="p-3 bg-neon-blue/10 rounded-xl text-neon-blue">
+                                        <i class="fa-solid fa-video text-xl"></i>
+                                    </div>
+                                    <span class="text-xs font-mono text-neon-blue bg-neon-blue/10 px-2 py-1 rounded">PROD</span>
+                                </div>
+                                <p class="text-sm text-slate-400 font-medium">Custo Produção</p>
+                                <h3 class="text-3xl font-bold mt-1 text-white tracking-tight" id="kpi-content-cost">R$ 0,00</h3>
                             </div>
                         </div>
 
                         <!-- Investimento Total -->
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-xl shadow-md border border-gray-700 relative overflow-hidden">
-                            <p class="text-gray-400 text-sm font-medium">Investimento Total (Geral)</p>
-                            <h3 class="text-3xl font-bold mt-1 text-white truncate" id="kpi-total-invest">R$ 0,00</h3>
-                            <div class="absolute right-4 bottom-4 opacity-20 text-white text-5xl">
-                                <i class="fa-solid fa-scale-balanced"></i>
+                        <div class="glass-panel p-6 rounded-2xl relative overflow-hidden group border-neon-purple/30 bg-neon-purple/5">
+                            <div class="absolute inset-0 bg-gradient-to-br from-neon-purple/10 to-transparent opacity-50"></div>
+                            <div class="relative z-10">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="p-3 bg-neon-purple/20 rounded-xl text-neon-purple shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+                                        <i class="fa-solid fa-scale-balanced text-xl"></i>
+                                    </div>
+                                    <span class="text-xs font-mono text-white bg-neon-purple/20 px-2 py-1 rounded">TOTAL</span>
+                                </div>
+                                <p class="text-sm text-slate-300 font-medium">Investimento Geral</p>
+                                <h3 class="text-3xl font-bold mt-1 text-white tracking-tight" id="kpi-total-invest">R$ 0,00</h3>
                             </div>
                         </div>
                     </div>
 
-                    <!-- KPI Cards Row 2: Produtividade -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                            <p class="text-xs text-gray-500 uppercase font-bold">Total Posts</p>
-                            <h3 class="text-2xl font-bold text-gray-800 dark:text-white" id="kpi-total">0</h3>
+                    <!-- KPI Cards Row 2: Status & Atrasos (NOVO) -->
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                        <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">Total</p>
+                            <h3 class="text-2xl font-bold text-white" id="kpi-total">0</h3>
                         </div>
-                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                            <p class="text-xs text-gray-500 uppercase font-bold">Concluídos</p>
-                            <h3 class="text-2xl font-bold text-green-600" id="kpi-done">0</h3>
+                        <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition border-b-2 border-b-neon-green/50">
+                            <p class="text-[10px] text-neon-green uppercase font-bold tracking-wider mb-1">Concluídos</p>
+                            <h3 class="text-2xl font-bold text-white" id="kpi-done">0</h3>
                         </div>
-                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                            <p class="text-xs text-gray-500 uppercase font-bold">Pendentes</p>
-                            <h3 class="text-2xl font-bold text-yellow-600" id="kpi-pending">0</h3>
+                        <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition border-b-2 border-b-neon-yellow/50">
+                            <p class="text-[10px] text-neon-yellow uppercase font-bold tracking-wider mb-1">Pendentes</p>
+                            <h3 class="text-2xl font-bold text-white" id="kpi-pending">0</h3>
                         </div>
-                        <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                            <p class="text-xs text-gray-500 uppercase font-bold">Tx. Conclusão</p>
-                            <h3 class="text-2xl font-bold text-indigo-600" id="kpi-rate">0%</h3>
+                        <!-- NOVO KPI: ATRASADOS -->
+                        <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition border-b-2 border-b-neon-red shadow-[0_0_10px_rgba(244,63,94,0.1)]">
+                            <p class="text-[10px] text-neon-red uppercase font-bold tracking-wider mb-1 flex justify-center items-center gap-1">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Atrasados
+                            </p>
+                            <h3 class="text-2xl font-bold text-white" id="kpi-late">0</h3>
+                        </div>
+                        
+                        <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition">
+                            <p class="text-[10px] text-neon-blue uppercase font-bold tracking-wider mb-1">Taxa</p>
+                            <h3 class="text-2xl font-bold text-white" id="kpi-rate">0%</h3>
                         </div>
                     </div>
 
                     <!-- Charts Area -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                        <!-- Chart 1: Traffic Breakdown (NOVO) -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-1">
-                            <h3 class="text-lg font-semibold mb-4 text-emerald-600 dark:text-emerald-400">Investimento por Plataforma</h3>
-                            <div class="relative h-48">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <!-- Chart 1 -->
+                        <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
+                            <h3 class="text-sm font-bold mb-6 text-slate-300 uppercase tracking-wide border-l-2 border-neon-green pl-3">Ads por Plataforma</h3>
+                            <div class="relative h-56">
                                 <canvas id="trafficChart"></canvas>
                             </div>
                         </div>
 
-                        <!-- Chart 2: Content Breakdown -->
-                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-1">
-                            <h3 class="text-lg font-semibold mb-4 text-indigo-600 dark:text-indigo-400">Volume de Conteúdo</h3>
-                            <div class="relative h-48">
+                        <!-- Chart 2 -->
+                        <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
+                            <h3 class="text-sm font-bold mb-6 text-slate-300 uppercase tracking-wide border-l-2 border-neon-blue pl-3">Volume Conteúdo</h3>
+                            <div class="relative h-56">
                                 <canvas id="platformChart"></canvas>
                             </div>
                         </div>
 
-                         <!-- Chart 3: Status -->
-                         <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-1">
-                            <h3 class="text-lg font-semibold mb-4">Status de Produção</h3>
-                            <div class="relative h-48">
+                         <!-- Chart 3 (Atualizado com Atrasados) -->
+                         <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
+                            <h3 class="text-sm font-bold mb-6 text-slate-300 uppercase tracking-wide border-l-2 border-neon-yellow pl-3">Status Geral</h3>
+                            <div class="relative h-56">
                                 <canvas id="statusChart"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. TRAFFIC VIEW (NOVO) -->
-                <div id="view-traffic" class="view-section hidden">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <!-- 2. TRAFFIC VIEW -->
+                <div id="view-traffic" class="view-section hidden animate-fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Gestão de Tráfego Pago</h2>
-                            <p class="text-sm text-gray-500">Controle seus investimentos em Ads.</p>
+                            <h2 class="text-3xl font-bold text-white">Tráfego Pago</h2>
+                            <p class="text-sm text-slate-400 mt-1">Gestão de investimentos em Ads.</p>
                         </div>
-                        <div class="flex gap-2">
-                             <button onclick="app.exportTrafficPDF()" class="px-4 py-2 text-sm font-medium text-emerald-600 bg-white border border-emerald-200 rounded-lg hover:bg-emerald-50 dark:bg-gray-700 dark:text-emerald-400 dark:border-gray-600 shadow-sm transition">
-                                <i class="fa-solid fa-file-pdf mr-2"></i> Relatório Ads
+                        <div class="flex gap-3">
+                             <button onclick="app.exportTrafficPDF()" class="px-4 py-2 text-xs font-bold text-neon-green bg-transparent border border-neon-green/30 rounded-lg hover:bg-neon-green/10 transition">
+                                <i class="fa-solid fa-file-pdf mr-2"></i> Relatório
                             </button>
-                            <button onclick="app.openTrafficModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow transition flex items-center">
-                                <i class="fa-solid fa-plus mr-2"></i> Adicionar Investimento
+                            <button onclick="app.openTrafficModal()" class="bg-neon-green text-slate-900 px-5 py-2 rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:scale-105 transition-all flex items-center">
+                                <i class="fa-solid fa-plus mr-2"></i> Novo Investimento
                             </button>
                         </div>
                     </div>
 
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="glass-panel rounded-2xl overflow-hidden">
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
-                                <thead class="bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 uppercase text-xs">
+                                <thead class="bg-slate-900/50 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
                                     <tr>
-                                        <th class="p-4">Data</th>
-                                        <th class="p-4">Plataforma</th>
-                                        <th class="p-4">Pagamento</th>
-                                        <th class="p-4">Valor</th>
-                                        <th class="p-4">Notas</th>
-                                        <th class="p-4 text-right">Ações</th>
+                                        <th class="p-5">Data</th>
+                                        <th class="p-5">Plataforma</th>
+                                        <th class="p-5">Pagamento</th>
+                                        <th class="p-5">Valor</th>
+                                        <th class="p-5">Notas</th>
+                                        <th class="p-5 text-right">Ações</th>
                                     </tr>
                                 </thead>
-                                <tbody id="traffic-list" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                                <tbody id="traffic-list" class="divide-y divide-white/5 text-sm text-slate-300"></tbody>
                             </table>
                         </div>
-                        <div id="traffic-empty" class="hidden p-10 text-center text-gray-500">
-                            <i class="fa-solid fa-sack-dollar text-4xl mb-3 opacity-30"></i>
-                            <p>Nenhum investimento registrado.</p>
+                        <div id="traffic-empty" class="hidden p-12 text-center text-slate-600">
+                            <i class="fa-solid fa-sack-dollar text-5xl mb-4 opacity-20"></i>
+                            <p>Sem dados de tráfego.</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- 3. CALENDAR VIEW -->
-                <div id="view-calendar" class="view-section hidden">
-                    <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <div id="view-calendar" class="view-section hidden animate-fade-in">
+                    <div class="glass-panel p-6 rounded-2xl">
                         <div id='calendar'></div>
                     </div>
                 </div>
 
                 <!-- 4. ACTIVITIES VIEW -->
-                <div id="view-activities" class="view-section hidden">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold">Produção de Conteúdo</h2>
-                        <div class="flex gap-2">
-                             <button onclick="app.exportContentPDF()" class="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 dark:bg-gray-700 dark:text-red-400 dark:border-gray-600 shadow-sm transition">
-                                <i class="fa-solid fa-file-pdf mr-2"></i> PDF Conteúdo
+                <div id="view-activities" class="view-section hidden animate-fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+                        <div>
+                            <h2 class="text-3xl font-bold text-white">Conteúdo</h2>
+                            <p class="text-sm text-slate-400 mt-1">Planejamento editorial.</p>
+                        </div>
+                        <div class="flex gap-3">
+                             <button onclick="app.exportContentPDF()" class="px-4 py-2 text-xs font-bold text-neon-yellow bg-transparent border border-neon-yellow/30 rounded-lg hover:bg-neon-yellow/10 transition">
+                                <i class="fa-solid fa-file-pdf mr-2"></i> Relatório
                             </button>
-                            <button onclick="app.openModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow transition flex items-center">
+                            <button onclick="app.openModal()" class="bg-neon-blue text-slate-900 px-5 py-2 rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:shadow-[0_0_25px_rgba(6,182,212,0.6)] hover:scale-105 transition-all flex items-center">
                                 <i class="fa-solid fa-plus mr-2"></i> Novo Post
                             </button>
                         </div>
                     </div>
                     
-                    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                    <div class="glass-panel rounded-2xl overflow-hidden">
                         <table class="w-full text-left">
-                            <thead class="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-xs">
+                            <thead class="bg-slate-900/50 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
                                 <tr>
-                                    <th class="p-4">Status</th>
-                                    <th class="p-4">Data</th>
-                                    <th class="p-4">Canal</th>
-                                    <th class="p-4">Título</th>
-                                    <th class="p-4 text-right">Ações</th>
+                                    <th class="p-5">Status</th>
+                                    <th class="p-5">Data</th>
+                                    <th class="p-5">Canal</th>
+                                    <th class="p-5">Título</th>
+                                    <th class="p-5 text-right">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody id="activities-list" class="divide-y divide-gray-100 dark:divide-gray-700"></tbody>
+                            <tbody id="activities-list" class="divide-y divide-white/5 text-sm text-slate-300"></tbody>
                         </table>
                     </div>
                 </div>
 
                 <!-- 5. IDEAS VIEW -->
-                <div id="view-ideas" class="view-section hidden">
-                    <h2 class="text-2xl font-bold mb-4">Banco de Ideias</h2>
-                    <div class="flex gap-2 mb-4">
-                        <input type="text" id="new-idea-text" placeholder="Nova ideia..." class="flex-1 rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-2 border">
-                        <button onclick="app.addIdea()" class="bg-indigo-600 text-white px-4 rounded-lg">Adicionar</button>
+                <div id="view-ideas" class="view-section hidden animate-fade-in">
+                    <h2 class="text-3xl font-bold text-white mb-6">Banco de Ideias</h2>
+                    <div class="flex gap-3 mb-6">
+                        <input type="text" id="new-idea-text" placeholder="Digite uma nova ideia..." class="flex-1 rounded-xl border border-white/10 bg-slate-900/50 p-4 text-white focus:border-neon-purple focus:ring-1 focus:ring-neon-purple transition-all">
+                        <button onclick="app.addIdea()" class="bg-neon-purple text-white px-6 rounded-xl font-bold shadow-lg hover:bg-neon-purple/90 transition-all">
+                            Adicionar
+                        </button>
                     </div>
-                    <div id="ideas-list" class="space-y-2"></div>
+                    <div id="ideas-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                 </div>
 
                 <!-- 6. CONFIG VIEW -->
-                <div id="view-backup" class="view-section hidden">
-                    <h2 class="text-2xl font-bold mb-4">Configurações Avançadas</h2>
-                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
-                        <label class="block text-sm font-bold mb-2">Configuração JSON do Firebase</label>
-                        <textarea id="custom-config-input" class="w-full p-3 border rounded-lg font-mono text-xs mb-4 dark:bg-gray-900 dark:border-gray-700" rows="6" placeholder='cole o const firebaseConfig = { ... } aqui'></textarea>
+                <div id="view-backup" class="view-section hidden animate-fade-in">
+                    <h2 class="text-3xl font-bold text-white mb-6">Configurações Avançadas</h2>
+                    <div class="glass-panel p-8 rounded-2xl max-w-2xl">
+                        <label class="block text-xs font-bold mb-2 text-slate-400 uppercase tracking-wide">Configuração JSON do Firebase</label>
+                        <textarea id="custom-config-input" class="w-full p-4 border border-white/10 rounded-xl font-mono text-xs mb-6 bg-slate-950 text-slate-300 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue" rows="6" placeholder='cole o const firebaseConfig = { ... } aqui'></textarea>
                         
-                        <label class="block text-sm font-bold mb-2">ID da Sala (Manual)</label>
-                        <input type="text" id="custom-room-id-input" class="w-full p-2 border rounded-lg mb-4 dark:bg-gray-900 dark:border-gray-700">
+                        <label class="block text-xs font-bold mb-2 text-slate-400 uppercase tracking-wide">ID da Sala (Manual)</label>
+                        <input type="text" id="custom-room-id-input" class="w-full p-4 border border-white/10 rounded-xl mb-6 bg-slate-950 text-white focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
 
-                        <div class="flex gap-2">
-                            <button onclick="app.saveCustomConfig()" class="bg-indigo-600 text-white px-4 py-2 rounded font-bold">Salvar e Recarregar</button>
-                            <button onclick="app.clearCustomConfig()" class="bg-red-600 text-white px-4 py-2 rounded font-bold">Resetar Tudo</button>
+                        <div class="flex gap-3 pt-4 border-t border-white/5">
+                            <button onclick="app.saveCustomConfig()" class="bg-neon-blue/10 border border-neon-blue/30 text-neon-blue hover:bg-neon-blue hover:text-slate-900 px-5 py-2.5 rounded-lg text-sm font-bold transition-all">Salvar e Recarregar</button>
+                            <button onclick="app.clearCustomConfig()" class="bg-neon-red/10 border border-neon-red/30 text-neon-red hover:bg-neon-red hover:text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all">Resetar Tudo</button>
                         </div>
                     </div>
                 </div>
@@ -453,21 +571,28 @@
         </main>
     </div>
 
-    <!-- MODAL POST (Conteúdo) -->
+    <!-- MODAL BASE STYLE -->
+    <style>
+        .modal-bg { background-color: rgba(2, 6, 23, 0.9); backdrop-filter: blur(8px); }
+        .modal-content { background: #0f172a; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+    </style>
+
+    <!-- MODAL POST -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
-        <div class="flex min-h-full items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg p-6">
-                <h3 class="text-lg font-bold mb-4 dark:text-white" id="modal-title">Novo Post</h3>
-                <form id="post-form" class="space-y-4">
+        <div class="flex min-h-full items-center justify-center p-4 modal-bg">
+            <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-blue to-neon-purple"></div>
+                <h3 class="text-xl font-bold mb-6 text-white" id="modal-title">Novo Post</h3>
+                <form id="post-form" class="space-y-5">
                     <input type="hidden" id="post-id">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Título</label>
-                        <input type="text" id="post-title" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Título</label>
+                        <input type="text" id="post-title" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Canal</label>
-                            <select id="post-platform" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Canal</label>
+                            <select id="post-platform" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
                                 <option value="instagram">Instagram</option>
                                 <option value="youtube">YouTube</option>
                                 <option value="tiktok">TikTok</option>
@@ -475,38 +600,38 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Tipo</label>
-                            <select id="post-type" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Tipo</label>
+                            <select id="post-type" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
                                 <option value="post">Post</option>
                                 <option value="reels">Reels</option>
                                 <option value="stories">Stories</option>
                             </select>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="post-has-cost" onchange="document.getElementById('cost-group').classList.toggle('hidden')">
-                        <label for="post-has-cost" class="text-sm dark:text-gray-300">Tem Custo de Produção?</label>
+                    <div class="flex items-center gap-3 p-3 bg-slate-900/50 rounded-lg border border-white/5">
+                        <input type="checkbox" id="post-has-cost" class="w-4 h-4 rounded border-slate-600 text-neon-blue focus:ring-neon-blue bg-slate-800" onchange="document.getElementById('cost-group').classList.toggle('hidden')">
+                        <label for="post-has-cost" class="text-sm text-slate-300 font-medium">Tem Custo de Produção?</label>
                     </div>
-                    <div id="cost-group" class="hidden">
-                         <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Valor (R$)</label>
-                         <input type="number" id="post-cost-value" step="0.01" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Data</label>
-                        <input type="date" id="post-date" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                    <div id="cost-group" class="hidden animate-fade-in">
+                         <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Valor (R$)</label>
+                         <input type="number" id="post-cost-value" step="0.01" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white focus:border-neon-blue">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300">Status</label>
-                        <select id="post-status" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Data</label>
+                        <input type="date" id="post-date" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Status</label>
+                        <select id="post-status" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
                             <option value="pending">Pendente</option>
                             <option value="done">Concluído</option>
                         </select>
                     </div>
                 </form>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button onclick="app.deletePost()" id="btn-delete" class="hidden text-red-600 hover:bg-red-50 px-3 py-2 rounded text-sm font-bold">Excluir</button>
-                    <button onclick="app.closeModal()" class="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-bold">Cancelar</button>
-                    <button onclick="app.savePost()" class="bg-indigo-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-indigo-700">Salvar</button>
+                <div class="mt-8 flex justify-end gap-3">
+                    <button onclick="app.deletePost()" id="btn-delete" class="hidden text-neon-red hover:bg-neon-red/10 px-4 py-2 rounded-lg text-sm font-bold transition">Excluir</button>
+                    <button onclick="app.closeModal()" class="text-slate-400 hover:text-white px-4 py-2 text-sm font-bold transition">Cancelar</button>
+                    <button onclick="app.savePost()" class="bg-neon-blue text-slate-900 hover:bg-neon-blue/90 px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-neon-blue/20 transition-all">Salvar</button>
                 </div>
             </div>
         </div>
@@ -514,17 +639,18 @@
 
     <!-- MODAL TRAFFIC -->
     <div id="traffic-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeTrafficModal()">
-        <div class="flex min-h-full items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
-            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6 border-t-4 border-emerald-500">
-                <h3 class="text-lg font-bold mb-4 dark:text-white">Investimento em Tráfego</h3>
-                <form id="traffic-form" class="space-y-4">
+        <div class="flex min-h-full items-center justify-center p-4 modal-bg">
+            <div class="modal-content rounded-2xl w-full max-w-md p-8 relative">
+                <div class="absolute top-0 left-0 w-full h-1 bg-neon-green"></div>
+                <h3 class="text-xl font-bold mb-6 text-white">Investimento em Tráfego</h3>
+                <form id="traffic-form" class="space-y-5">
                     <input type="hidden" id="traffic-id">
                     
                     <div>
-                        <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Plataforma</label>
-                        <select id="traffic-platform" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
-                            <option value="meta_ads">Meta Ads (Facebook/Instagram)</option>
-                            <option value="google_ads">Google Ads / YouTube</option>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Plataforma</label>
+                        <select id="traffic-platform" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
+                            <option value="meta_ads">Meta Ads</option>
+                            <option value="google_ads">Google Ads</option>
                             <option value="tiktok_ads">TikTok Ads</option>
                             <option value="linkedin_ads">LinkedIn Ads</option>
                             <option value="other">Outra</option>
@@ -532,19 +658,19 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Valor Investido (R$)</label>
-                        <input type="number" id="traffic-value" step="0.01" required class="w-full rounded border p-2 text-lg font-bold text-emerald-600 dark:bg-gray-700 dark:border-gray-600" placeholder="0.00">
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Valor (R$)</label>
+                        <input type="number" id="traffic-value" step="0.01" required class="w-full rounded-lg border border-neon-green/30 bg-slate-900 p-3 text-2xl font-bold text-neon-green placeholder-slate-700" placeholder="0.00">
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Data</label>
-                            <input type="date" id="traffic-date" required class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Data</label>
+                            <input type="date" id="traffic-date" required class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
                         </div>
                         <div>
-                            <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Forma Pagto</label>
-                            <select id="traffic-method" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
-                                <option value="credit_card">Cartão de Crédito</option>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Forma Pagto</label>
+                            <select id="traffic-method" class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
+                                <option value="credit_card">Cartão</option>
                                 <option value="pix">PIX</option>
                                 <option value="boleto">Boleto</option>
                                 <option value="transfer">Transferência</option>
@@ -553,14 +679,14 @@
                     </div>
 
                     <div>
-                        <label class="block text-xs uppercase font-bold text-gray-500 mb-1">Notas / Detalhes</label>
-                        <input type="text" id="traffic-notes" placeholder="Ex: Campanha Dia das Mães" class="w-full rounded border p-2 dark:bg-gray-700 dark:border-gray-600">
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Notas</label>
+                        <input type="text" id="traffic-notes" placeholder="Detalhes da campanha..." class="w-full rounded-lg border border-white/10 bg-slate-900 p-3 text-white">
                     </div>
                 </form>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button onclick="app.deleteTraffic()" id="btn-delete-traffic" class="hidden text-red-600 hover:bg-red-50 px-3 py-2 rounded text-sm font-bold">Excluir</button>
-                    <button onclick="app.closeTrafficModal()" class="text-gray-600 hover:bg-gray-100 px-3 py-2 rounded text-sm font-bold">Cancelar</button>
-                    <button onclick="app.saveTraffic()" class="bg-emerald-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-emerald-700">Salvar Investimento</button>
+                <div class="mt-8 flex justify-end gap-3">
+                    <button onclick="app.deleteTraffic()" id="btn-delete-traffic" class="hidden text-neon-red hover:bg-neon-red/10 px-4 py-2 rounded-lg text-sm font-bold transition">Excluir</button>
+                    <button onclick="app.closeTrafficModal()" class="text-slate-400 hover:text-white px-4 py-2 text-sm font-bold transition">Cancelar</button>
+                    <button onclick="app.saveTraffic()" class="bg-neon-green text-slate-900 hover:bg-neon-green/90 px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-neon-green/20 transition-all">Salvar</button>
                 </div>
             </div>
         </div>
@@ -568,11 +694,12 @@
 
     <!-- JOIN ROOM MODAL -->
     <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" onclick="if(event.target===this) app.closeJoinModal()">
-        <div class="flex min-h-full items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm">
-            <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm">
-                <h3 class="font-bold text-center mb-4 dark:text-white">Entrar em Sala</h3>
-                <input type="text" id="manual-room-input" placeholder="Código da Sala" class="w-full p-3 rounded border mb-4 text-center uppercase">
-                <button onclick="app.confirmJoinRoom()" class="w-full bg-indigo-600 text-white p-2 rounded font-bold">Entrar</button>
+        <div class="flex min-h-full items-center justify-center p-4 modal-bg">
+            <div class="modal-content rounded-2xl p-8 w-full max-w-sm text-center">
+                <h3 class="text-xl font-bold mb-2 text-white">Entrar em Sala</h3>
+                <p class="text-sm text-slate-400 mb-6">Digite o código da sala para conectar.</p>
+                <input type="text" id="manual-room-input" placeholder="CÓDIGO" class="w-full p-4 rounded-xl border border-white/10 bg-slate-950 mb-4 text-center text-lg font-mono uppercase text-neon-blue tracking-widest focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
+                <button onclick="app.confirmJoinRoom()" class="w-full bg-neon-blue text-slate-900 p-3 rounded-xl font-bold hover:bg-neon-blue/90 transition-all">CONECTAR</button>
             </div>
         </div>
     </div>
@@ -585,17 +712,13 @@
             charts: {},
             
             init() {
-                // FIXED: Date handling to use LOCAL timezone instead of UTC to avoid "previous day" bugs in Brazil
                 const now = new Date();
                 const year = now.getFullYear();
                 const month = now.getMonth();
                 
-                // First day of current month local
                 const firstDay = new Date(year, month, 1);
-                // Last day of current month local
                 const lastDay = new Date(year, month + 1, 0);
 
-                // Format as YYYY-MM-DD manually to respect local time
                 const toLocalISO = (dt) => {
                     const y = dt.getFullYear();
                     const m = String(dt.getMonth() + 1).padStart(2, '0');
@@ -606,11 +729,9 @@
                 this.filterStartDate = toLocalISO(firstDay);
                 this.filterEndDate = toLocalISO(lastDay);
                 
-                // Configurar Inputs de Data
                 document.getElementById('filter-start-date').value = this.filterStartDate;
                 document.getElementById('filter-end-date').value = this.filterEndDate;
                 
-                // Populate Config Textarea (Restore functionality)
                 const savedConfig = localStorage.getItem('custom_firebase_config');
                 if(savedConfig) {
                     try {
@@ -623,23 +744,18 @@
                     document.getElementById('custom-room-id-input').value = savedRoom;
                 }
 
-                // Carregar Dados Locais
                 const localData = localStorage.getItem('marketingPlannerData_offline');
                 if (localData) try { this.data = JSON.parse(localData); } catch(e) { this.data = []; }
                 
-                // Exibir Sala
                 const room = window.effectiveAppId;
-                document.getElementById('room-display-text').innerText = room === 'default-app-id' ? 'Padrão' : room;
+                document.getElementById('room-display-text').innerText = room === 'default-app-id' ? 'PADRÃO' : room;
                 document.getElementById('mobile-room-display').innerText = room;
 
-                // Navegação Inicial
                 this.navigate('dashboard');
                 
-                // Conectar
                 setTimeout(() => typeof initFirebaseConnection === 'function' && initFirebaseConnection(), 500);
             },
 
-            // --- FILTROS DE DATA ---
             applyDateFilter() {
                 this.filterStartDate = document.getElementById('filter-start-date').value;
                 this.filterEndDate = document.getElementById('filter-end-date').value;
@@ -650,10 +766,6 @@
                 }
                 
                 this.renderDashboard();
-                
-                const start = this.filterStartDate.split('-').reverse().join('/');
-                const end = this.filterEndDate.split('-').reverse().join('/');
-                document.getElementById('current-filter-label').innerText = `Filtro: ${start} até ${end}`;
             },
 
             setCurrentMonthFilter() {
@@ -674,13 +786,16 @@
                 this.applyDateFilter();
             },
 
-            // --- NAVEGAÇÃO ---
             navigate(target) {
                 document.querySelectorAll('.nav-item').forEach(btn => {
-                    if (btn.dataset.target === target) {
-                        btn.classList.add('bg-indigo-50', 'dark:bg-gray-700', 'text-indigo-600');
-                    } else {
-                        btn.classList.remove('bg-indigo-50', 'dark:bg-gray-700', 'text-indigo-600');
+                    const isTarget = btn.dataset.target === target;
+                    // Reset styling
+                    btn.classList.remove('bg-white/10', 'text-white', 'shadow-inner');
+                    btn.classList.add('text-slate-400');
+                    
+                    if (isTarget) {
+                        btn.classList.add('bg-white/10', 'text-white', 'shadow-inner');
+                        btn.classList.remove('text-slate-400');
                     }
                 });
                 document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
@@ -700,13 +815,18 @@
                 });
             },
 
-            // --- DASHBOARD ---
             renderDashboard() {
                 const filtered = this.getFilteredData();
+                const today = new Date().toISOString().split('T')[0];
                 
                 // 1. Dados de Conteúdo
                 const posts = filtered.filter(i => (!i.docType || i.docType === 'post'));
                 const done = posts.filter(i => i.status === 'done').length;
+                
+                // Lógica de Atrasados: status != done E data < hoje
+                const late = posts.filter(i => i.status !== 'done' && i.date < today).length;
+                const pending = posts.filter(i => i.status === 'pending' && i.date >= today).length; // Pendentes FUTUROS ou HOJE
+                
                 const total = posts.length;
                 const rate = total > 0 ? Math.round((done/total)*100) : 0;
                 
@@ -717,7 +837,8 @@
 
                 document.getElementById('kpi-total').innerText = total;
                 document.getElementById('kpi-done').innerText = done;
-                document.getElementById('kpi-pending').innerText = posts.filter(i => i.status === 'pending').length;
+                document.getElementById('kpi-pending').innerText = pending;
+                document.getElementById('kpi-late').innerText = late; // Novo KPI Visual
                 document.getElementById('kpi-rate').innerText = `${rate}%`;
                 document.getElementById('kpi-content-cost').innerText = contentCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -739,16 +860,16 @@
                 document.getElementById('kpi-total-invest').innerText = totalInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
                 // Gráficos
-                this.renderCharts(posts, trafficByPlatform);
+                this.renderCharts(posts, trafficByPlatform, { done, pending, late });
             },
 
-            renderCharts(posts, trafficData) {
+            renderCharts(posts, trafficData, statusCounts) {
                 if(this.charts.traffic) this.charts.traffic.destroy();
                 if(this.charts.platform) this.charts.platform.destroy();
                 if(this.charts.status) this.charts.status.destroy();
 
-                const isDark = document.documentElement.classList.contains('dark');
-                const colorText = isDark ? '#cbd5e1' : '#475569';
+                const colorText = '#94a3b8';
+                const neonColors = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e'];
 
                 // Chart 1: Traffic
                 const tLabels = Object.keys(trafficData).map(k => k.replace('_', ' ').toUpperCase());
@@ -759,12 +880,18 @@
                     data: {
                         labels: tLabels,
                         datasets: [{
-                            data: tValues.length ? tValues : [1], // Dummy if empty
-                            backgroundColor: tValues.length ? ['#0668E1', '#4285F4', '#000000', '#0077b5', '#fbbf24'] : ['#e5e7eb'],
-                            borderWidth: 0
+                            data: tValues.length ? tValues : [1], 
+                            backgroundColor: tValues.length ? neonColors : ['#334155'],
+                            borderWidth: 0,
+                            hoverOffset: 10
                         }]
                     },
-                    options: { plugins: { legend: { position: 'right', labels: { color: colorText, boxWidth: 10 } } } }
+                    options: { 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { color: colorText, boxWidth: 10, font: { family: 'Inter' } } } },
+                        cutout: '70%'
+                    }
                 });
 
                 // Chart 2: Content
@@ -778,40 +905,46 @@
                         datasets: [{
                             label: 'Posts',
                             data: pCounts,
-                            backgroundColor: '#4F46E5',
-                            borderRadius: 4
+                            backgroundColor: '#06b6d4',
+                            borderRadius: 6,
+                            barThickness: 30
                         }]
                     },
                     options: { 
+                        responsive: true,
+                        maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
-                        scales: { x: { ticks: { color: colorText }, grid: { display: false } }, y: { ticks: { color: colorText } } }
+                        scales: { 
+                            x: { ticks: { color: colorText }, grid: { display: false } }, 
+                            y: { ticks: { color: colorText }, grid: { color: 'rgba(255,255,255,0.05)' } } 
+                        }
                     }
                 });
 
-                // Chart 3: Status
+                // Chart 3: Status (Com Atrasados)
                 this.charts.status = new Chart(document.getElementById('statusChart'), {
                     type: 'pie',
                     data: {
-                        labels: ['Feito', 'Pendente'],
+                        labels: ['Concluído', 'Pendente', 'Atrasado'],
                         datasets: [{
-                            data: [posts.filter(i=>i.status==='done').length, posts.filter(i=>i.status==='pending').length],
-                            backgroundColor: ['#10b981', '#f59e0b'],
+                            data: [statusCounts.done, statusCounts.pending, statusCounts.late],
+                            backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
                             borderWidth: 0
                         }]
                     },
-                    options: { plugins: { legend: { labels: { color: colorText } } } }
+                    options: { 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: colorText, usePointStyle: true, padding: 20 } } } 
+                    }
                 });
             },
 
-            // --- TRÁFEGO PAGO LOGIC ---
             renderTraffic() {
                 const list = document.getElementById('traffic-list');
                 const empty = document.getElementById('traffic-empty');
                 list.innerHTML = '';
 
-                // Lista COMPLETA (Histórico) ou FILTRADA?
-                // Decisão: Manter lista completa para gestão, Dashboard para análise.
-                // Ordenar por data (mais recente)
                 const items = this.data.filter(i => i.docType === 'traffic');
                 items.sort((a,b) => new Date(b.date) - new Date(a.date));
 
@@ -822,10 +955,10 @@
                 empty.classList.add('hidden');
 
                 const platformMap = {
-                    'meta_ads': '<span class="flex items-center gap-2 text-blue-700 font-bold"><i class="fa-brands fa-meta"></i> Meta Ads</span>',
+                    'meta_ads': '<span class="flex items-center gap-2 text-blue-400 font-bold"><i class="fa-brands fa-meta"></i> Meta Ads</span>',
                     'google_ads': '<span class="flex items-center gap-2 text-blue-500 font-bold"><i class="fa-brands fa-google"></i> Google</span>',
-                    'tiktok_ads': '<span class="flex items-center gap-2 text-black dark:text-gray-300 font-bold"><i class="fa-brands fa-tiktok"></i> TikTok</span>',
-                    'linkedin_ads': '<span class="flex items-center gap-2 text-blue-800 font-bold"><i class="fa-brands fa-linkedin"></i> LinkedIn</span>',
+                    'tiktok_ads': '<span class="flex items-center gap-2 text-white font-bold"><i class="fa-brands fa-tiktok"></i> TikTok</span>',
+                    'linkedin_ads': '<span class="flex items-center gap-2 text-blue-300 font-bold"><i class="fa-brands fa-linkedin"></i> LinkedIn</span>',
                     'other': 'Outro'
                 };
                 const methodMap = { 'credit_card': 'Cartão', 'pix': 'PIX', 'boleto': 'Boleto', 'transfer': 'Transf.' };
@@ -835,15 +968,54 @@
                     const date = item.date.split('-').reverse().join('/');
                     
                     const row = document.createElement('tr');
-                    row.className = "border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+                    row.className = "hover:bg-white/5 transition border-b border-white/5 last:border-0 group";
                     row.innerHTML = `
-                        <td class="p-4 text-sm font-mono text-gray-500">${date}</td>
-                        <td class="p-4 text-sm">${platformMap[item.platform] || item.platform}</td>
-                        <td class="p-4 text-sm text-gray-600 dark:text-gray-300"><span class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs uppercase">${methodMap[item.paymentMethod] || '-'}</span></td>
-                        <td class="p-4 font-bold text-emerald-600 dark:text-emerald-400">${val}</td>
-                        <td class="p-4 text-xs text-gray-400 italic">${item.notes || '-'}</td>
-                        <td class="p-4 text-right">
-                            <button onclick="app.editTraffic('${item.id}')" class="text-gray-400 hover:text-blue-500 mr-2"><i class="fa-solid fa-pen"></i></button>
+                        <td class="p-5 font-mono text-slate-500 group-hover:text-neon-blue transition-colors">${date}</td>
+                        <td class="p-5">${platformMap[item.platform] || item.platform}</td>
+                        <td class="p-5"><span class="bg-white/5 px-2 py-1 rounded text-xs uppercase font-medium text-slate-400 border border-white/5">${methodMap[item.paymentMethod] || '-'}</span></td>
+                        <td class="p-5 font-bold text-neon-green text-lg">${val}</td>
+                        <td class="p-5 text-xs text-slate-500 italic max-w-xs truncate">${item.notes || '-'}</td>
+                        <td class="p-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="app.editTraffic('${item.id}')" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-neon-blue hover:shadow-glow transition-all"><i class="fa-solid fa-pen text-xs"></i></button>
+                        </td>
+                    `;
+                    list.appendChild(row);
+                });
+            },
+
+            renderActivities() {
+                const list = document.getElementById('activities-list');
+                list.innerHTML = '';
+                const posts = this.data.filter(i => (!i.docType || i.docType === 'post'));
+                posts.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+                const today = new Date().toISOString().split('T')[0];
+
+                posts.forEach(item => {
+                    const row = document.createElement('tr');
+                    const date = item.date.split('-').reverse().join('/');
+                    
+                    let statusBadge;
+                    let rowClass = "hover:bg-white/5 transition border-b border-white/5 last:border-0 group";
+                    
+                    // Lógica Visual de Atraso
+                    if (item.status === 'done') {
+                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-green bg-neon-green/10 border border-neon-green/20">Feito</span>';
+                    } else if (item.date < today) {
+                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-red bg-neon-red/10 border border-neon-red/20 animate-pulse">Atrasado</span>';
+                         rowClass += " bg-neon-red/5"; // Highlight row
+                    } else {
+                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-yellow bg-neon-yellow/10 border border-neon-yellow/20">Pendente</span>';
+                    }
+
+                    row.className = rowClass;
+                    row.innerHTML = `
+                        <td class="p-5">${statusBadge}</td>
+                        <td class="p-5 font-mono text-slate-500 group-hover:text-neon-blue transition-colors">${date}</td>
+                        <td class="p-5 font-bold capitalize text-slate-300"><i class="fa-solid fa-hashtag text-slate-600 mr-2"></i>${item.platform}</td>
+                        <td class="p-5 font-medium text-white">${item.title}</td>
+                        <td class="p-5 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="app.editPost('${item.id}')" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-neon-blue hover:shadow-glow transition-all"><i class="fa-solid fa-pen text-xs"></i></button>
                         </td>
                     `;
                     list.appendChild(row);
@@ -908,31 +1080,6 @@
                 }
             },
 
-            // --- CONTEÚDO ---
-            renderActivities() {
-                const list = document.getElementById('activities-list');
-                list.innerHTML = '';
-                const posts = this.data.filter(i => (!i.docType || i.docType === 'post'));
-                posts.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-                posts.forEach(item => {
-                    const row = document.createElement('tr');
-                    const date = item.date.split('-').reverse().join('/');
-                    const statusClass = item.status === 'done' ? 'text-green-600 bg-green-50' : 'text-yellow-600 bg-yellow-50';
-                    row.className = "border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50";
-                    row.innerHTML = `
-                        <td class="p-4"><span class="px-2 py-1 rounded text-xs font-bold uppercase ${statusClass}">${item.status === 'done' ? 'Feito' : 'Pendente'}</span></td>
-                        <td class="p-4 text-sm text-gray-500">${date}</td>
-                        <td class="p-4 text-sm font-bold capitalize">${item.platform}</td>
-                        <td class="p-4 text-sm">${item.title}</td>
-                        <td class="p-4 text-right">
-                            <button onclick="app.editPost('${item.id}')" class="text-gray-400 hover:text-indigo-600"><i class="fa-solid fa-pen"></i></button>
-                        </td>
-                    `;
-                    list.appendChild(row);
-                });
-            },
-
             openModal(existing = null) {
                 const modal = document.getElementById('post-modal');
                 modal.classList.remove('hidden');
@@ -954,7 +1101,6 @@
                     btnDelete.classList.remove('hidden');
                 } else {
                     document.getElementById('post-id').value = '';
-                    // Fix Local Date
                     const today = new Date();
                     const y = today.getFullYear();
                     const m = String(today.getMonth() + 1).padStart(2, '0');
@@ -999,7 +1145,6 @@
                 }
             },
 
-            // --- HELPER GENÉRICOS ---
             async saveItemGeneric(item) {
                 const idx = this.data.findIndex(i => i.id === item.id);
                 if(idx >= 0) this.data[idx] = item;
@@ -1044,7 +1189,6 @@
                 if(!document.getElementById('view-calendar').classList.contains('hidden')) this.initCalendar();
             },
 
-            // --- OUTRAS VIEWS ---
             initCalendar() {
                 setTimeout(() => {
                     const calendarEl = document.getElementById('calendar');
@@ -1054,7 +1198,15 @@
                         locale: 'pt-br',
                         events: this.data
                             .filter(i => (!i.docType || i.docType === 'post'))
-                            .map(i => ({ title: i.title, start: i.date, color: i.status === 'done' ? '#10b981' : '#4F46E5' }))
+                            .map(i => ({ 
+                                title: i.title, 
+                                start: i.date, 
+                                color: i.status === 'done' ? '#10b981' : (i.date < new Date().toISOString().split('T')[0] ? '#f43f5e' : '#06b6d4')
+                            })),
+                        eventClick: (info) => {
+                             // Find item by date and title (simple approximation for demo)
+                             // Ideally use ID in event props
+                        }
                     });
                     this.calendarInstance.render();
                 }, 100);
@@ -1074,18 +1226,20 @@
             renderIdeas() {
                 const div = document.getElementById('ideas-list');
                 div.innerHTML = this.data.filter(i => i.docType === 'idea_draft').map(i => 
-                    `<div class="p-2 border rounded flex justify-between bg-white dark:bg-gray-800 dark:border-gray-700">
-                        <span>${i.title}</span> 
-                        <button onclick="app.deleteItemGeneric('${i.id}')" class="text-red-500"><i class="fa-solid fa-trash"></i></button>
+                    `<div class="glass-panel p-4 rounded-xl flex flex-col justify-between group hover:border-neon-purple/50 transition-all">
+                        <span class="text-white font-medium mb-4">${i.title}</span> 
+                        <div class="flex justify-between items-end mt-2">
+                             <span class="text-[10px] text-slate-500 font-mono">${i.date}</span>
+                             <button onclick="app.deleteItemGeneric('${i.id}')" class="text-slate-600 hover:text-neon-red transition-colors"><i class="fa-solid fa-trash"></i></button>
+                        </div>
                     </div>`
                 ).join('');
             },
 
-            // --- PDF REPORTS ---
             exportContentPDF() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                doc.text("Relatório de Produção de Conteúdo", 14, 20);
+                doc.text("Relatório de Produção", 14, 20);
                 
                 const rows = this.getFilteredData()
                     .filter(i => (!i.docType || i.docType === 'post'))
@@ -1103,7 +1257,7 @@
             exportTrafficPDF() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                doc.text("Relatório de Investimento em Tráfego", 14, 20);
+                doc.text("Relatório de Tráfego", 14, 20);
                 
                 const rows = this.getFilteredData()
                     .filter(i => i.docType === 'traffic')
@@ -1120,12 +1274,11 @@
                     body: rows, 
                     startY: 30,
                     theme: 'striped',
-                    headStyles: { fillColor: [5, 150, 105] } // Emerald color
+                    headStyles: { fillColor: [5, 150, 105] } 
                 });
                 doc.save('relatorio_trafego.pdf');
             },
 
-            // FIXED: Missing implementation of Config Save in previous file
             saveCustomConfig() {
                 const input = document.getElementById('custom-config-input');
                 let val = input.value.trim();
@@ -1183,7 +1336,6 @@
                 }
             },
 
-            // Sala e Auth
             shareLink() {
                 const url = `${window.location.origin}${window.location.pathname}?room=${window.effectiveAppId}`;
                 navigator.clipboard.writeText(url).then(() => alert("Link copiado!"));
@@ -1197,11 +1349,7 @@
                     window.location.href = window.location.origin + window.location.pathname + "?room=" + code;
                 }
             },
-            toggleTheme() {
-                document.documentElement.classList.toggle('dark');
-                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-                this.renderCharts(this.data.filter(i=>!i.docType||i.docType==='post'), {}); 
-            },
+            
             setupRealtimeListener() {
                 if (!window.firebaseOps) return;
                 const q = window.firebaseOps.query(window.firebaseOps.collection(window.db, 'artifacts', window.effectiveAppId, 'public', 'data', 'marketing_posts'));
@@ -1225,24 +1373,18 @@
                 const mobileDot = document.getElementById('mobile-status-dot');
                 
                 if(el) {
-                    // Update text and icon
                     if (status === 'success') {
-                        el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1"><i class="fa-solid fa-cloud"></i> ${msg}</span>`;
-                        if(dot) { dot.className = "absolute top-4 right-4 w-3 h-3 rounded-full bg-green-500"; }
-                        if(mobileDot) { mobileDot.className = "w-3 h-3 rounded-full bg-green-500 mt-2"; }
+                        el.innerHTML = `<span class="text-neon-green font-bold flex items-center gap-1"><i class="fa-solid fa-cloud"></i> ${msg}</span>`;
+                        if(dot) { dot.className = "absolute top-4 right-4 w-2 h-2 rounded-full bg-neon-green shadow-[0_0_8px_rgba(16,185,129,0.8)]"; }
                     } else if (status === 'error') {
-                        el.innerHTML = `<span class="text-red-600 font-bold flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> ${msg}</span>`;
-                        if(dot) { dot.className = "absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500"; }
-                        if(mobileDot) { mobileDot.className = "w-3 h-3 rounded-full bg-red-500 mt-2"; }
+                        el.innerHTML = `<span class="text-neon-red font-bold flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> ${msg}</span>`;
+                        if(dot) { dot.className = "absolute top-4 right-4 w-2 h-2 rounded-full bg-neon-red shadow-[0_0_8px_rgba(244,63,94,0.8)]"; }
                     } else if (status === 'missing_config') {
-                        el.innerHTML = `<span class="text-yellow-600 font-bold flex items-center gap-1 animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> ${msg}</span>`;
-                        if(dot) { dot.className = "absolute top-4 right-4 w-3 h-3 rounded-full bg-yellow-400"; }
-                        if(mobileDot) { mobileDot.className = "w-3 h-3 rounded-full bg-yellow-400 mt-2"; }
+                        el.innerHTML = `<span class="text-neon-yellow font-bold flex items-center gap-1 animate-pulse"><i class="fa-solid fa-triangle-exclamation"></i> ${msg}</span>`;
+                        if(dot) { dot.className = "absolute top-4 right-4 w-2 h-2 rounded-full bg-neon-yellow shadow-[0_0_8px_rgba(245,158,11,0.8)]"; }
                     } else {
-                        // Default/Loading
-                        el.innerHTML = `<span class="text-gray-500 flex items-center gap-1"><i class="fa-solid fa-laptop"></i> ${msg || '...'}</span>`;
-                        if(dot) { dot.className = "absolute top-4 right-4 w-3 h-3 rounded-full bg-gray-300"; }
-                        if(mobileDot) { mobileDot.className = "w-3 h-3 rounded-full bg-gray-300 mt-2"; }
+                        el.innerHTML = `<span class="text-slate-500 flex items-center gap-1"><i class="fa-solid fa-laptop"></i> ${msg || '...'}</span>`;
+                        if(dot) { dot.className = "absolute top-4 right-4 w-2 h-2 rounded-full bg-slate-500"; }
                     }
                 }
             }
