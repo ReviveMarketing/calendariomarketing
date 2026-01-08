@@ -72,7 +72,17 @@
                 .replace(/\s+/g, '-'); // Troca espaços por hífens
         }
 
-        // 1. Configuração do Firebase
+        // 1. Configuração do Firebase (AGORA AUTOMÁTICA)
+        const hardcodedConfig = {
+            apiKey: "AIzaSyCWNsCe0-JHNBMPgtmc56nHw4-8a1DgoH4",
+            authDomain: "marketingplanner-8adc3.firebaseapp.com",
+            projectId: "marketingplanner-8adc3",
+            storageBucket: "marketingplanner-8adc3.firebasestorage.app",
+            messagingSenderId: "258822946548",
+            appId: "1:258822946548:web:a13641eb0560ef3f3ca8a1",
+            measurementId: "G-F9DGBQ1M5Z"
+        };
+
         let envConfig = null;
         try { if (typeof __firebase_config !== 'undefined') envConfig = JSON.parse(__firebase_config); } catch (e) {}
 
@@ -82,7 +92,8 @@
             if (stored) customConfig = JSON.parse(stored);
         } catch (e) {}
 
-        let activeConfig = customConfig || envConfig || {};
+        // Prioridade: Config Manual > Ambiente > Hardcoded (Sua config)
+        let activeConfig = customConfig || envConfig || hardcodedConfig;
 
         // 2. ID da Sala (Sync ID) via URL ou LocalStorage
         const defaultAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
