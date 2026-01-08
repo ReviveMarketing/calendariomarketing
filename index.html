@@ -64,6 +64,14 @@
     <script>
         // --- GERENCIAMENTO DE CONFIGURAÇÃO E SALAS ---
         
+        // Função auxiliar para normalizar IDs de sala (remove espaços, acentos, caixa baixa)
+        function normalizeRoomId(id) {
+            if(!id) return null;
+            return id.toString().trim().toLowerCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+                .replace(/\s+/g, '-'); // Troca espaços por hífens
+        }
+
         // 1. Configuração do Firebase
         let envConfig = null;
         try { if (typeof __firebase_config !== 'undefined') envConfig = JSON.parse(__firebase_config); } catch (e) {}
@@ -81,8 +89,11 @@
         
         // Lógica de Detecção da Sala (Prioridade: URL > LocalStorage > Default)
         const urlParams = new URLSearchParams(window.location.search);
-        const urlRoomId = urlParams.get('room');
-        let localRoomId = localStorage.getItem('custom_room_id');
+        let rawUrlRoom = urlParams.get('room');
+        let rawLocalRoom = localStorage.getItem('custom_room_id');
+
+        let urlRoomId = normalizeRoomId(rawUrlRoom);
+        let localRoomId = normalizeRoomId(rawLocalRoom);
 
         // Se veio link com sala, atualiza o local imediatamente
         if (urlRoomId && urlRoomId !== localRoomId) {
@@ -135,7 +146,7 @@
                 console.log(`Firebase conectado na sala: ${window.effectiveAppId}`);
                 
                 if(window.app) {
-                    window.app.updateConnectionUI('success', 'Online');
+                    window.app.updateConnectionUI('success', 'Nuvem Ativa');
                     window.app.setupRealtimeListener();
                 }
 
@@ -194,6 +205,7 @@
                         <span id="room-display-text">...</span>
                         <i class="fa-solid fa-copy ml-1 opacity-0 group-hover:opacity-100 transition-opacity"></i>
                     </div>
+                    <div class="text-[9px] text-gray-400 mt-1 text-center italic">Certifique-se que o código é igual em ambos os dispositivos</div>
                 </div>
 
                 <!-- Manual Join Button -->
@@ -253,7 +265,7 @@
                     <div class="flex flex-col">
                         <span class="font-bold text-gray-900 dark:text-white leading-tight">ReVive Assessoria</span>
                         <!-- Mobile Room ID Display -->
-                        <span onclick="app.openJoinModal()" class="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded cursor-pointer" id="mobile-room-display">
+                        <span onclick="app.openJoinModal()" class="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded cursor-pointer truncate max-w-[150px]" id="mobile-room-display">
                             Sala: Carregando...
                         </span>
                     </div>
@@ -667,6 +679,7 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">Digite o código da sala que você quer acessar:</p>
                         
                         <input type="text" id="manual-room-input" placeholder="Ex: projeto-alpha-123" class="w-full text-center text-lg font-mono p-3 rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 border uppercase">
+                        <p class="text-xs text-gray-400 mt-2 text-center">O código será convertido para minúsculo e sem espaços automaticamente.</p>
                         
                         <button type="button" onclick="app.confirmJoinRoom()" class="w-full mt-4 justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 transition">
                             Entrar na Sala
@@ -804,9 +817,12 @@
             },
 
             confirmJoinRoom() {
-                const code = document.getElementById('manual-room-input').value.trim();
-                if(!code) return;
+                const rawCode = document.getElementById('manual-room-input').value;
+                if(!rawCode) return;
                 
+                // Normaliza o código antes de usar
+                const code = normalizeRoomId(rawCode);
+
                 if(confirm(`Entrar na sala "${code}"? O sistema será recarregado.`)) {
                     localStorage.setItem('custom_room_id', code);
                     // Atualiza URL para refletir a nova sala
@@ -824,7 +840,7 @@
                 
                 // Se estiver no padrão, gera uma nova sala
                 if (roomId === defaultId) {
-                    roomId = 'PROJ-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+                    roomId = 'proj-' + Math.random().toString(36).substring(2, 7).toLowerCase();
                     localStorage.setItem('custom_room_id', roomId);
                     window.effectiveAppId = roomId;
                     
@@ -867,7 +883,7 @@
                     const isDefault = window.effectiveAppId === (typeof __app_id !== 'undefined' ? __app_id : 'default-app-id');
                     const roomName = isDefault ? 'Padrão' : window.effectiveAppId;
                     
-                    el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> Online (${roomName.substring(0,6)}..)</span>`;
+                    el.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1" title="Sala: ${roomName}"><i class="fa-solid fa-cloud"></i> Nuvem Ativa</span>`;
                     // Remove modo offline ao conectar com sucesso
                     this.offlineMode = false;
                 } else if (status === 'error') {
@@ -902,6 +918,7 @@
                         console.warn("Realtime error:", error);
                         // Falha silenciosa para modo offline
                         this.offlineMode = true; 
+                        this.updateConnectionUI('error', 'Desconectado');
                     });
                 } catch (e) {
                     console.warn(e);
