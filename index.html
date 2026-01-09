@@ -452,6 +452,14 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- NEW: Detalhamento de Tráfego -->
+                    <div class="mb-8 animate-fade-in">
+                        <h3 class="text-sm font-bold mb-4 text-muted uppercase tracking-wide border-l-4 border-neon-green pl-3">Detalhamento de Verba (Vagas & Leads)</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4" id="traffic-breakdown-container">
+                            <!-- JS will populate -->
+                        </div>
+                    </div>
 
                     <!-- KPI Cards Row 2: Status & Atrasos (NOVO) -->
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -533,6 +541,7 @@
                                     <tr>
                                         <th class="p-5">Data</th>
                                         <th class="p-5">Plataforma</th>
+                                        <th class="p-5">Categoria</th>
                                         <th class="p-5">Pagamento</th>
                                         <th class="p-5">Valor</th>
                                         <th class="p-5">Notas</th>
@@ -690,7 +699,7 @@
             <div class="modal-content rounded-2xl w-full max-w-md p-8 relative">
                 <div class="absolute top-0 left-0 w-full h-1 bg-neon-green"></div>
                 <h3 class="text-xl font-bold mb-6 text-main">Investimento em Tráfego</h3>
-                <form id="traffic-form" class="space-y-5">
+                <form id="traffic-form" class="space-y-4">
                     <input type="hidden" id="traffic-id">
                     
                     <div>
@@ -701,6 +710,19 @@
                             <option value="tiktok_ads">TikTok Ads</option>
                             <option value="linkedin_ads">LinkedIn Ads</option>
                             <option value="other">Outra</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">Categoria / Destino</label>
+                        <select id="traffic-category" class="w-full rounded-lg p-3">
+                            <option value="vagas_mg">Vagas MG</option>
+                            <option value="vagas_sc">Vagas SC</option>
+                            <option value="vagas_ce">Vagas CE</option>
+                            <option value="leads_mg">LEADS MG</option>
+                            <option value="leads_ce">LEADS CE</option>
+                            <option value="leads_sc_central">LEADS SC/Central</option>
+                            <option value="outros">Outros</option>
                         </select>
                     </div>
 
@@ -960,11 +982,50 @@
                 let trafficInvest = 0;
                 const trafficByPlatform = {};
                 
+                // Categorias Específicas
+                const breakdownMap = {
+                    'vagas_mg': { label: 'Vagas MG', val: 0, color: 'text-blue-400' },
+                    'vagas_sc': { label: 'Vagas SC', val: 0, color: 'text-blue-400' },
+                    'vagas_ce': { label: 'Vagas CE', val: 0, color: 'text-blue-400' },
+                    'leads_mg': { label: 'LEADS MG', val: 0, color: 'text-green-400' },
+                    'leads_ce': { label: 'LEADS CE', val: 0, color: 'text-green-400' },
+                    'leads_sc_central': { label: 'LEADS SC/Central', val: 0, color: 'text-green-400' },
+                    'outros': { label: 'Outros', val: 0, color: 'text-gray-400' }
+                };
+
                 trafficItems.forEach(t => {
                     const val = parseFloat(t.value || 0);
                     trafficInvest += val;
                     trafficByPlatform[t.platform] = (trafficByPlatform[t.platform] || 0) + val;
+                    
+                    const cat = t.category || 'outros';
+                    if(breakdownMap[cat]) {
+                        breakdownMap[cat].val += val;
+                    } else {
+                        breakdownMap['outros'].val += val;
+                    }
                 });
+
+                // Render Breakdown
+                const breakdownContainer = document.getElementById('traffic-breakdown-container');
+                breakdownContainer.innerHTML = '';
+                
+                Object.values(breakdownMap).forEach(item => {
+                    if(item.val > 0) {
+                        const card = document.createElement('div');
+                        card.className = "glass-panel p-3 rounded-lg flex flex-col items-center justify-center text-center";
+                        card.innerHTML = `
+                            <span class="text-[10px] font-bold uppercase text-muted tracking-wider mb-1">${item.label}</span>
+                            <span class="font-bold text-sm ${item.color}">${item.val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        `;
+                        breakdownContainer.appendChild(card);
+                    }
+                });
+                
+                // Se estiver vazio, mostra mensagem
+                if(breakdownContainer.children.length === 0) {
+                    breakdownContainer.innerHTML = `<div class="col-span-full text-center text-xs text-muted italic">Sem gastos de tráfego no período.</div>`;
+                }
 
                 document.getElementById('kpi-traffic').innerText = trafficInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -1075,17 +1136,23 @@
                     'linkedin_ads': '<span class="flex items-center gap-2 text-blue-300 font-bold"><i class="fa-brands fa-linkedin"></i> LinkedIn</span>',
                     'other': 'Outro'
                 };
+                const categoryMap = {
+                    'vagas_mg': 'Vagas MG', 'vagas_sc': 'Vagas SC', 'vagas_ce': 'Vagas CE',
+                    'leads_mg': 'LEADS MG', 'leads_ce': 'LEADS CE', 'leads_sc_central': 'LEADS SC/Central', 'outros': 'Outros'
+                };
                 const methodMap = { 'credit_card': 'Cartão', 'pix': 'PIX', 'boleto': 'Boleto', 'transfer': 'Transf.' };
 
                 items.forEach(item => {
                     const val = parseFloat(item.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
                     const date = item.date.split('-').reverse().join('/');
+                    const catLabel = categoryMap[item.category] || item.category || '-';
                     
                     const row = document.createElement('tr');
                     row.className = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
                     row.innerHTML = `
                         <td class="p-5 font-mono text-muted group-hover:text-neon-blue transition-colors">${date}</td>
                         <td class="p-5">${platformMap[item.platform] || item.platform}</td>
+                        <td class="p-5 text-xs uppercase font-bold text-muted tracking-wide">${catLabel}</td>
                         <td class="p-5"><span class="bg-black/5 dark:bg-white/5 px-2 py-1 rounded text-xs uppercase font-medium text-muted border border-black/5 dark:border-white/5">${methodMap[item.paymentMethod] || '-'}</span></td>
                         <td class="p-5 font-bold text-neon-green text-lg">${val}</td>
                         <td class="p-5 text-xs text-muted italic max-w-xs truncate">${item.notes || '-'}</td>
@@ -1152,6 +1219,7 @@
                 if(existing) {
                     document.getElementById('traffic-id').value = existing.id;
                     document.getElementById('traffic-platform').value = existing.platform;
+                    document.getElementById('traffic-category').value = existing.category || 'outros';
                     document.getElementById('traffic-value').value = existing.value;
                     document.getElementById('traffic-date').value = existing.date;
                     document.getElementById('traffic-method').value = existing.paymentMethod;
@@ -1159,6 +1227,7 @@
                     btnDelete.classList.remove('hidden');
                 } else {
                     document.getElementById('traffic-id').value = '';
+                    document.getElementById('traffic-category').value = 'outros';
                     const today = new Date();
                     const y = today.getFullYear();
                     const m = String(today.getMonth() + 1).padStart(2, '0');
@@ -1185,6 +1254,7 @@
                     id: id,
                     docType: 'traffic',
                     platform: document.getElementById('traffic-platform').value,
+                    category: document.getElementById('traffic-category').value,
                     value: document.getElementById('traffic-value').value,
                     date: document.getElementById('traffic-date').value,
                     paymentMethod: document.getElementById('traffic-method').value,
