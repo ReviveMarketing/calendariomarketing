@@ -137,6 +137,23 @@
             box-shadow: 0 0 0 1px #06b6d4;
             outline: none;
         }
+        
+        /* Custom File Input */
+        input[type="file"]::file-selector-button {
+            background-color: #10b981;
+            color: #020617;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.75rem;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        input[type="file"]::file-selector-button:hover {
+            background-color: #059669;
+        }
 
         /* Classes Utilitárias de Texto */
         .text-main { color: var(--text-main); }
@@ -227,17 +244,23 @@
             }
 
             try {
+                // Importar módulos principais
                 const { initializeApp, getApps, getApp } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js");
                 const { getAuth, signInAnonymously, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js");
                 const { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, query } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js");
+                // Importar Storage para uploads
+                const { getStorage, ref, uploadBytes, getDownloadURL } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-storage.js");
 
                 let firebaseApp = getApps().length === 0 ? initializeApp(activeConfig) : getApp();
                 const auth = getAuth(firebaseApp);
                 const db = getFirestore(firebaseApp);
+                const storage = getStorage(firebaseApp);
 
                 window.db = db;
                 window.auth = auth;
+                window.storage = storage;
                 window.firebaseOps = { collection, onSnapshot, doc, setDoc, deleteDoc, query, signInAnonymously };
+                window.storageOps = { ref, uploadBytes, getDownloadURL };
 
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
@@ -552,6 +575,7 @@
                                         <th class="p-5">Categoria</th>
                                         <th class="p-5">Pagamento</th>
                                         <th class="p-5">Valor</th>
+                                        <th class="p-5">Comprovante</th>
                                         <th class="p-5">Notas</th>
                                         <th class="p-5 text-right">Ações</th>
                                     </tr>
@@ -785,7 +809,7 @@
         </div>
     </div>
 
-    <!-- MODAL TRAFFIC -->
+    <!-- MODAL TRAFFIC (Atualizado com Upload) -->
     <div id="traffic-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeTrafficModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-md p-8 relative">
@@ -821,6 +845,15 @@
                     <div>
                         <label class="block text-xs font-bold text-muted uppercase mb-1">Valor (R$)</label>
                         <input type="number" id="traffic-value" step="0.01" required class="w-full rounded-lg border border-neon-green/30 p-3 text-2xl font-bold text-neon-green" placeholder="0.00">
+                    </div>
+
+                    <!-- NOVO CAMPO: UPLOAD COMPROVANTE -->
+                    <div class="p-3 border border-dashed border-neon-green/50 rounded-lg bg-neon-green/5">
+                        <label class="block text-xs font-bold text-neon-green uppercase mb-2">Comprovante (Obrigatório)</label>
+                        <input type="file" id="traffic-file" accept="image/*,application/pdf" class="w-full text-xs text-muted">
+                        <div id="traffic-file-link" class="mt-2 hidden">
+                            <!-- Link do arquivo existente -->
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -1323,6 +1356,11 @@
                     const date = item.date.split('-').reverse().join('/');
                     const catLabel = categoryMap[item.category] || item.category || '-';
                     
+                    let attachBtn = '<span class="text-xs text-muted">-</span>';
+                    if (item.attachmentUrl) {
+                        attachBtn = `<a href="${item.attachmentUrl}" target="_blank" class="text-neon-blue hover:text-white transition flex items-center gap-1 font-bold text-xs"><i class="fa-solid fa-paperclip"></i> Ver</a>`;
+                    }
+
                     const row = document.createElement('tr');
                     row.className = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
                     row.innerHTML = `
@@ -1331,6 +1369,7 @@
                         <td class="p-5 text-xs uppercase font-bold text-muted tracking-wide">${catLabel}</td>
                         <td class="p-5"><span class="bg-black/5 dark:bg-white/5 px-2 py-1 rounded text-xs uppercase font-medium text-muted border border-black/5 dark:border-white/5">${methodMap[item.paymentMethod] || '-'}</span></td>
                         <td class="p-5 font-bold text-neon-green text-lg">${val}</td>
+                        <td class="p-5">${attachBtn}</td>
                         <td class="p-5 text-xs text-muted italic max-w-xs truncate">${item.notes || '-'}</td>
                         <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="app.editTraffic('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-blue hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
@@ -1341,197 +1380,10 @@
                 });
             },
 
-            renderActivities() {
-                const list = document.getElementById('activities-list');
-                list.innerHTML = '';
-                const posts = this.data.filter(i => (!i.docType || i.docType === 'post'));
-                posts.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-                const today = new Date().toISOString().split('T')[0];
-
-                posts.forEach(item => {
-                    const row = document.createElement('tr');
-                    const date = item.date.split('-').reverse().join('/');
-                    const deadline = item.deadline ? item.deadline.split('-').reverse().join('/') : '-';
-                    const urgency = item.urgency || '';
-                    
-                    let statusBadge;
-                    let urgencyBadge = '';
-                    let rowClass = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
-                    
-                    // Lógica Visual de Atraso
-                    if (item.status === 'done') {
-                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-green bg-neon-green/10 border border-neon-green/20">Feito</span>';
-                    } else if (item.date < today) {
-                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-red bg-neon-red/10 border border-neon-red/20 animate-pulse">Atrasado</span>';
-                         rowClass += " bg-neon-red/5"; // Highlight row
-                    } else {
-                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-yellow bg-neon-yellow/10 border border-neon-yellow/20">Pendente</span>';
-                    }
-
-                    // Urgency Visual
-                    if(urgency === 'urgente') urgencyBadge = '<span title="Urgente" class="text-neon-red ml-1"><i class="fa-solid fa-bolt"></i></span>';
-                    if(urgency === 'rapido') urgencyBadge = '<span title="Rápido" class="text-neon-yellow ml-1"><i class="fa-solid fa-gauge-high"></i></span>';
-
-                    row.className = rowClass;
-                    row.innerHTML = `
-                        <td class="p-5">${statusBadge}</td>
-                        <td class="p-5 font-mono text-neon-purple font-bold text-xs">
-                            ${deadline} ${urgencyBadge}
-                        </td>
-                        <td class="p-5 text-sm font-bold text-slate-600 dark:text-slate-400">${item.requester || '-'}</td>
-                        <td class="p-5 font-mono text-muted group-hover:text-neon-blue transition-colors">${date}</td>
-                        <td class="p-5 font-medium text-main">${item.title}</td>
-                        <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="app.editPost('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-blue hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
-                            <button onclick="app.deleteItemGeneric('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-red hover:shadow-glow transition-all" title="Excluir"><i class="fa-solid fa-trash text-xs"></i></button>
-                        </td>
-                    `;
-                    list.appendChild(row);
-                });
-            },
-
-            // --- MANAGERS LOGIC ---
-
-            renderManagers() {
-                const list = document.getElementById('managers-list');
-                const empty = document.getElementById('managers-empty');
-                list.innerHTML = '';
-
-                // Filter items of docType 'manager_request'
-                const requests = this.data.filter(i => i.docType === 'manager_request');
-                requests.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-                if(requests.length === 0) {
-                    empty.classList.remove('hidden');
-                    return;
-                }
-                empty.classList.add('hidden');
-
-                const today = new Date().toISOString().split('T')[0];
-
-                requests.forEach(item => {
-                    const row = document.createElement('tr');
-                    const date = item.date.split('-').reverse().join('/');
-                    const urgency = item.urgency || 'normal';
-                    
-                    let statusBadge;
-                    // Logic for Status Badge
-                    if (item.status === 'done') {
-                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-green bg-neon-green/10 border border-neon-green/20">Concluído</span>';
-                    } else {
-                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-pink bg-neon-pink/10 border border-neon-pink/20">Pendente</span>';
-                    }
-
-                    // Logic for Urgency Badge
-                    let urgencyText = 'Normal';
-                    let urgencyClass = 'text-muted';
-                    if(urgency === 'urgente') { urgencyText = 'Urgente'; urgencyClass = 'text-neon-red font-bold animate-pulse'; }
-                    if(urgency === 'rapido') { urgencyText = 'Rápido'; urgencyClass = 'text-neon-yellow font-bold'; }
-                    if(urgency === 'outro') { urgencyText = 'Outro'; urgencyClass = 'text-neon-blue'; }
-
-                    row.className = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
-                    row.innerHTML = `
-                        <td class="p-5">${statusBadge}</td>
-                        <td class="p-5 uppercase text-xs ${urgencyClass}">${urgencyText}</td>
-                        <td class="p-5 font-mono text-muted group-hover:text-neon-pink transition-colors">${date}</td>
-                        <td class="p-5 font-bold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-user-tie text-muted mr-2"></i>${item.managerName || 'N/A'}</td>
-                        <td class="p-5 font-medium text-main">${item.title}</td>
-                        <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="app.editManagerRequest('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-pink hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
-                            <button onclick="app.deleteItemGeneric('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-red hover:shadow-glow transition-all" title="Excluir"><i class="fa-solid fa-trash text-xs"></i></button>
-                        </td>
-                    `;
-                    list.appendChild(row);
-                });
-            },
-
-            openManagerModal(existing = null) {
-                const modal = document.getElementById('manager-modal');
-                modal.classList.remove('hidden');
-                document.getElementById('manager-form').reset();
-                const btnDelete = document.getElementById('btn-delete-manager');
-                
-                // Reset Button state
-                const btnSave = document.getElementById('btn-save-manager');
-                btnSave.disabled = false;
-                btnSave.innerHTML = "<span>Salvar</span>";
-
-                if(existing) {
-                    document.getElementById('manager-id').value = existing.id;
-                    document.getElementById('manager-title').value = existing.title;
-                    document.getElementById('manager-name').value = existing.managerName;
-                    document.getElementById('manager-date').value = existing.date;
-                    document.getElementById('manager-status').value = existing.status;
-                    document.getElementById('manager-notes').value = existing.notes || '';
-                    document.getElementById('manager-format').value = existing.format || 'outro';
-                    document.getElementById('manager-urgency').value = existing.urgency || 'normal';
-                    btnDelete.classList.remove('hidden');
-                } else {
-                    document.getElementById('manager-id').value = '';
-                    const today = new Date();
-                    const y = today.getFullYear();
-                    const m = String(today.getMonth() + 1).padStart(2, '0');
-                    const d = String(today.getDate()).padStart(2, '0');
-                    document.getElementById('manager-date').value = `${y}-${m}-${d}`;
-                    btnDelete.classList.add('hidden');
-                }
-            },
-
-            closeManagerModal() { document.getElementById('manager-modal').classList.add('hidden'); },
-
-            editManagerRequest(id) {
-                const item = this.data.find(i => i.id === id);
-                if(item) this.openManagerModal(item);
-            },
-
-            async saveManagerRequest() {
-                const btnSave = document.getElementById('btn-save-manager');
-                btnSave.disabled = true;
-                btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
-
-                const id = document.getElementById('manager-id').value || this.generateId();
-                const newStatus = document.getElementById('manager-status').value;
-                const wasDone = this.data.find(i => i.id === id)?.status === 'done';
-
-                const item = {
-                    id: id,
-                    docType: 'manager_request',
-                    title: document.getElementById('manager-title').value,
-                    managerName: document.getElementById('manager-name').value,
-                    date: document.getElementById('manager-date').value,
-                    status: newStatus,
-                    notes: document.getElementById('manager-notes').value,
-                    format: document.getElementById('manager-format').value,
-                    urgency: document.getElementById('manager-urgency').value
-                };
-
-                if(!item.title || !item.managerName) {
-                    alert("Preencha o título e o nome do gestor");
-                    btnSave.disabled = false;
-                    btnSave.innerHTML = "<span>Salvar</span>";
-                    return;
-                }
-
-                await this.saveItemGeneric(item);
-                this.closeManagerModal();
-
-                if (newStatus === 'done' && !wasDone) {
-                    this.celebrate();
-                }
-            },
-
-            async deleteManagerRequest() {
-                const id = document.getElementById('manager-id').value;
-                if(confirm("Excluir solicitação?")) {
-                    await this.deleteItemGeneric(id);
-                    this.closeManagerModal();
-                }
-            },
-
             openTrafficModal(existing = null) {
                 const modal = document.getElementById('traffic-modal');
                 const btnDelete = document.getElementById('btn-delete-traffic');
+                const fileLink = document.getElementById('traffic-file-link');
                 modal.classList.remove('hidden');
                 document.getElementById('traffic-form').reset();
                 
@@ -1548,6 +1400,14 @@
                     document.getElementById('traffic-date').value = existing.date;
                     document.getElementById('traffic-method').value = existing.paymentMethod;
                     document.getElementById('traffic-notes').value = existing.notes;
+                    
+                    if(existing.attachmentUrl) {
+                        fileLink.classList.remove('hidden');
+                        fileLink.innerHTML = `<a href="${existing.attachmentUrl}" target="_blank" class="text-xs text-neon-blue hover:underline flex items-center gap-1"><i class="fa-solid fa-eye"></i> Ver comprovante atual</a>`;
+                    } else {
+                        fileLink.classList.add('hidden');
+                    }
+
                     btnDelete.classList.remove('hidden');
                 } else {
                     document.getElementById('traffic-id').value = '';
@@ -1557,6 +1417,7 @@
                     const m = String(today.getMonth() + 1).padStart(2, '0');
                     const d = String(today.getDate()).padStart(2, '0');
                     document.getElementById('traffic-date').value = `${y}-${m}-${d}`;
+                    fileLink.classList.add('hidden');
                     btnDelete.classList.add('hidden');
                 }
             },
@@ -1574,6 +1435,46 @@
                 btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
 
                 const id = document.getElementById('traffic-id').value || this.generateId();
+                const existingItem = this.data.find(i => i.id === id);
+                
+                const fileInput = document.getElementById('traffic-file');
+                const file = fileInput.files[0];
+                let attachmentUrl = existingItem ? existingItem.attachmentUrl : null;
+
+                // Lógica de Upload
+                if (file) {
+                    if (!window.storageOps) {
+                        alert("ERRO: O armazenamento na nuvem não está disponível. Verifique sua conexão ou configuração.");
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = "<span>Salvar</span>";
+                        return;
+                    }
+
+                    try {
+                        const path = `artifacts/${window.effectiveAppId}/public/files/${id}/${file.name}`;
+                        const storageRef = window.storageOps.ref(window.storage, path);
+                        
+                        btnSave.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-spin"></i> Enviando arquivo...`;
+                        
+                        await window.storageOps.uploadBytes(storageRef, file);
+                        attachmentUrl = await window.storageOps.getDownloadURL(storageRef);
+                    } catch (error) {
+                        console.error("Upload Error:", error);
+                        alert("Erro ao enviar o arquivo. Verifique se o Storage está habilitado no Firebase Console.");
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = "<span>Salvar</span>";
+                        return;
+                    }
+                }
+
+                // Validação: Exigir comprovante (novo ou existente)
+                if (!attachmentUrl) {
+                    alert("O comprovante é obrigatório para registrar o investimento!");
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = "<span>Salvar</span>";
+                    return;
+                }
+
                 const item = {
                     id: id,
                     docType: 'traffic',
@@ -1583,7 +1484,8 @@
                     date: document.getElementById('traffic-date').value,
                     paymentMethod: document.getElementById('traffic-method').value,
                     notes: document.getElementById('traffic-notes').value,
-                    title: `Investimento ${document.getElementById('traffic-platform').value}`
+                    title: `Investimento ${document.getElementById('traffic-platform').value}`,
+                    attachmentUrl: attachmentUrl // Salva a URL
                 };
 
                 if(!item.value || !item.date) { 
@@ -1605,13 +1507,14 @@
                 }
             },
 
+            // ... (Restante das funções mantidas iguais: openModal, closeModal, editPost, savePost, deletePost, saveItemGeneric, etc.) ...
+
             openModal(existing = null) {
                 const modal = document.getElementById('post-modal');
                 modal.classList.remove('hidden');
                 document.getElementById('post-form').reset();
                 const btnDelete = document.getElementById('btn-delete');
                 
-                // Reset Button state
                 const btnSave = document.getElementById('btn-save-post');
                 btnSave.disabled = false;
                 btnSave.innerHTML = "<span>Salvar</span>";
@@ -1662,8 +1565,6 @@
 
                 const id = document.getElementById('post-id').value || this.generateId();
                 const newStatus = document.getElementById('post-status').value;
-                
-                // Verifica status anterior para saber se foi uma nova conclusão
                 const oldItem = this.data.find(i => i.id === id);
                 const wasDone = oldItem && oldItem.status === 'done';
 
@@ -1693,9 +1594,6 @@
                 await this.saveItemGeneric(item);
                 this.closeModal();
 
-                // Dispara celebração se:
-                // 1. O novo status é 'Concluído' (done)
-                // 2. E (Era um item novo) OU (Era um item existente que NÃO estava concluído)
                 if (newStatus === 'done' && !wasDone) {
                     this.celebrate();
                 }
@@ -1714,7 +1612,6 @@
                 if(idx >= 0) this.data[idx] = item;
                 else this.data.push(item);
                 
-                // Atualiza localmente e renderiza imediatamente para dar feedback instantâneo
                 this.saveLocal();
                 this.refreshAll();
 
@@ -1727,7 +1624,6 @@
             },
 
             async deleteItemGeneric(id) {
-                // Se chamado diretamente do botão da tabela, pede confirmação
                 if(event && event.target && !confirm("Tem certeza que deseja excluir?")) return;
 
                 this.data = this.data.filter(i => i.id !== id);
@@ -1751,13 +1647,11 @@
             },
 
             refreshAll() {
-                // Atualiza todas as views, independentemente de qual está ativa, para garantir consistência
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) this.renderDashboard();
                 if (!document.getElementById('view-traffic').classList.contains('hidden')) this.renderTraffic();
                 if (!document.getElementById('view-activities').classList.contains('hidden')) this.renderActivities();
                 if (!document.getElementById('view-managers').classList.contains('hidden')) this.renderManagers();
                 if (!document.getElementById('view-ideas').classList.contains('hidden')) this.renderIdeas();
-                // O calendário é pesado, só atualiza se estiver visível
                 if (!document.getElementById('view-calendar').classList.contains('hidden')) this.initCalendar();
             },
 
@@ -1776,8 +1670,7 @@
                                 color: i.status === 'done' ? '#10b981' : (i.date < new Date().toISOString().split('T')[0] ? '#f43f5e' : '#06b6d4')
                             })),
                         eventClick: (info) => {
-                             // Find item by date and title (simple approximation for demo)
-                             // Ideally use ID in event props
+                             // Find item logic
                         }
                     });
                     this.calendarInstance.render();
@@ -1812,17 +1705,10 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 doc.text("Relatório de Produção", 14, 20);
-                
                 const rows = this.getFilteredData()
                     .filter(i => (!i.docType || i.docType === 'post'))
                     .map(i => [i.date.split('-').reverse().join('/'), i.platform, i.title, i.status === 'done' ? 'Feito' : 'Pendente']);
-                
-                doc.autoTable({ 
-                    head: [['Data', 'Canal', 'Título', 'Status']], 
-                    body: rows, 
-                    startY: 30,
-                    theme: 'grid'
-                });
+                doc.autoTable({ head: [['Data', 'Canal', 'Título', 'Status']], body: rows, startY: 30, theme: 'grid' });
                 doc.save('relatorio_conteudo.pdf');
             },
 
@@ -1830,7 +1716,6 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
                 doc.text("Relatório de Tráfego", 14, 20);
-                
                 const rows = this.getFilteredData()
                     .filter(i => i.docType === 'traffic')
                     .map(i => [
@@ -1840,14 +1725,7 @@
                         i.paymentMethod,
                         i.notes || ''
                     ]);
-                
-                doc.autoTable({ 
-                    head: [['Data', 'Plataforma', 'Valor', 'Forma Pagto', 'Notas']], 
-                    body: rows, 
-                    startY: 30,
-                    theme: 'striped',
-                    headStyles: { fillColor: [5, 150, 105] } 
-                });
+                doc.autoTable({ head: [['Data', 'Plataforma', 'Valor', 'Forma Pagto', 'Notas']], body: rows, startY: 30, theme: 'striped', headStyles: { fillColor: [5, 150, 105] } });
                 doc.save('relatorio_trafego.pdf');
             },
 
@@ -1858,13 +1736,11 @@
                 if(val) {
                     val = val.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
                     let parsed = {};
-                    
                     const extract = (text, key) => {
                         const regex = new RegExp(`${key}\\s*:\\s*["']([^"']+)["']`);
                         const match = text.match(regex);
                         return match ? match[1] : null;
                     };
-
                     parsed.apiKey = extract(val, 'apiKey');
                     parsed.projectId = extract(val, 'projectId');
 
@@ -1942,8 +1818,6 @@
             updateConnectionUI(status, msg) {
                 const el = document.getElementById('connection-status');
                 const dot = document.getElementById('status-dot');
-                const mobileDot = document.getElementById('mobile-status-dot');
-                
                 if(el) {
                     if (status === 'success') {
                         el.innerHTML = `<span class="text-neon-green font-bold flex items-center gap-1"><i class="fa-solid fa-cloud"></i> ${msg}</span>`;
