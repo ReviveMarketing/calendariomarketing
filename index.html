@@ -26,6 +26,7 @@
                             green: '#10b981',  
                             red: '#f43f5e',    
                             yellow: '#f59e0b', 
+                            pink: '#ec4899',
                         },
                         // Cores Redes Sociais
                         instagram: '#C13584',
@@ -319,6 +320,13 @@
                     </div>
                     <span class="font-medium text-sm">Tráfego Pago</span>
                 </button>
+                <!-- NOVA ABA: GESTORES -->
+                <button onclick="app.navigate('managers')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5 text-muted hover:text-main group" data-target="managers">
+                    <div class="w-8 h-8 rounded-lg bg-slate-200/50 dark:bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-neon-pink/20 group-hover:text-neon-pink transition-colors">
+                        <i class="fa-solid fa-user-tie text-sm"></i>
+                    </div>
+                    <span class="font-medium text-sm">Gestores</span>
+                </button>
                 <button onclick="app.navigate('calendar')" class="nav-item w-full flex items-center p-3 rounded-xl text-left transition-all duration-300 hover:bg-black/5 dark:hover:bg-white/5 text-muted hover:text-main group" data-target="calendar">
                     <div class="w-8 h-8 rounded-lg bg-slate-200/50 dark:bg-slate-800/50 flex items-center justify-center mr-3 group-hover:bg-neon-purple/20 group-hover:text-neon-purple transition-colors">
                         <i class="fa-solid fa-calendar-days text-sm"></i>
@@ -493,7 +501,7 @@
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                         <!-- Chart 1 -->
                         <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
-                            <h3 class="text-sm font-bold mb-6 text-muted uppercase tracking-wide border-l-2 border-neon-green pl-3">Ads por Plataforma</h3>
+                            <h3 class="text-sm font-bold mb-6 text-muted uppercase tracking-wide border-l-2 border-neon-green pl-3">Ads por Destino/Categoria</h3>
                             <div class="relative h-56">
                                 <canvas id="trafficChart"></canvas>
                             </div>
@@ -554,6 +562,40 @@
                         <div id="traffic-empty" class="hidden p-12 text-center text-muted">
                             <i class="fa-solid fa-sack-dollar text-5xl mb-4 opacity-20"></i>
                             <p>Sem dados de tráfego.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW: MANAGERS VIEW -->
+                <div id="view-managers" class="view-section hidden animate-fade-in">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+                        <div>
+                            <h2 class="text-3xl font-bold text-main">Solicitação de Gestores</h2>
+                            <p class="text-sm text-muted mt-1">Demandas e pedidos da gestão.</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button onclick="app.openManagerModal()" class="bg-neon-pink text-slate-900 px-5 py-2 rounded-lg text-xs font-bold shadow-[0_0_15px_rgba(236,72,153,0.4)] hover:shadow-[0_0_25px_rgba(236,72,153,0.6)] hover:scale-105 transition-all flex items-center">
+                                <i class="fa-solid fa-plus mr-2"></i> Nova Solicitação
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel rounded-2xl overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-200/50 dark:bg-slate-900/50 text-muted uppercase text-[10px] tracking-wider font-bold">
+                                <tr>
+                                    <th class="p-5">Status</th>
+                                    <th class="p-5">Data</th>
+                                    <th class="p-5">Gestor/Solicitante</th>
+                                    <th class="p-5">Demanda</th>
+                                    <th class="p-5 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="managers-list" class="divide-y divide-white/5 text-sm text-slate-600 dark:text-slate-300"></tbody>
+                        </table>
+                        <div id="managers-empty" class="hidden p-12 text-center text-muted">
+                            <i class="fa-solid fa-user-tie text-5xl mb-4 opacity-20"></i>
+                            <p>Nenhuma solicitação registrada.</p>
                         </div>
                     </div>
                 </div>
@@ -763,6 +805,51 @@
         </div>
     </div>
 
+    <!-- NEW: MODAL MANAGER REQUEST -->
+    <div id="manager-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeManagerModal()">
+        <div class="flex min-h-full items-center justify-center p-4 modal-bg">
+            <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-pink to-neon-purple"></div>
+                <h3 class="text-xl font-bold mb-6 text-main" id="manager-modal-title">Nova Solicitação</h3>
+                <form id="manager-form" class="space-y-5">
+                    <input type="hidden" id="manager-id">
+                    <div>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">Título da Demanda</label>
+                        <input type="text" id="manager-title" class="w-full rounded-lg p-3 focus:border-neon-pink focus:ring-1 focus:ring-neon-pink">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">Gestor/Solicitante</label>
+                        <input type="text" id="manager-name" class="w-full rounded-lg p-3" placeholder="Nome do Gestor">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Data</label>
+                            <input type="date" id="manager-date" class="w-full rounded-lg p-3">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Status</label>
+                            <select id="manager-status" class="w-full rounded-lg p-3">
+                                <option value="pending">Pendente</option>
+                                <option value="done">Concluído</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                         <label class="block text-xs font-bold text-muted uppercase mb-1">Detalhes</label>
+                         <textarea id="manager-notes" class="w-full rounded-lg p-3" rows="3"></textarea>
+                    </div>
+                </form>
+                <div class="mt-8 flex justify-end gap-3">
+                    <button onclick="app.deleteManagerRequest()" id="btn-delete-manager" class="hidden text-neon-red hover:bg-neon-red/10 px-4 py-2 rounded-lg text-sm font-bold transition">Excluir</button>
+                    <button onclick="app.closeManagerModal()" class="text-muted hover:text-main px-4 py-2 text-sm font-bold transition">Cancelar</button>
+                    <button onclick="app.saveManagerRequest()" id="btn-save-manager" class="bg-neon-pink text-slate-900 hover:bg-neon-pink/90 px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-neon-pink/20 transition-all flex items-center justify-center gap-2">
+                        <span>Salvar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- JOIN ROOM MODAL -->
     <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" onclick="if(event.target===this) app.closeJoinModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
@@ -939,6 +1026,7 @@
                 if (target === 'dashboard') this.renderDashboard();
                 if (target === 'traffic') this.renderTraffic();
                 if (target === 'activities') this.renderActivities();
+                if (target === 'managers') this.renderManagers();
                 if (target === 'calendar') this.initCalendar();
                 if (target === 'ideas') this.renderIdeas();
             },
@@ -981,6 +1069,7 @@
                 const trafficItems = filtered.filter(i => i.docType === 'traffic');
                 let trafficInvest = 0;
                 const trafficByPlatform = {};
+                const trafficByCategory = {}; // NEW for Chart
                 
                 // Categorias Específicas
                 const breakdownMap = {
@@ -993,20 +1082,32 @@
                     'outros': { label: 'Outros', val: 0, color: 'text-gray-400' }
                 };
 
+                const categoryLabelMap = {
+                    'vagas_mg': 'Vagas MG', 'vagas_sc': 'Vagas SC', 'vagas_ce': 'Vagas CE',
+                    'leads_mg': 'Leads MG', 'leads_ce': 'Leads CE', 'leads_sc_central': 'Leads SC/Central', 'outros': 'Outros'
+                };
+
                 trafficItems.forEach(t => {
                     const val = parseFloat(t.value || 0);
                     trafficInvest += val;
-                    trafficByPlatform[t.platform] = (trafficByPlatform[t.platform] || 0) + val;
                     
-                    const cat = t.category || 'outros';
-                    if(breakdownMap[cat]) {
-                        breakdownMap[cat].val += val;
+                    // Group by Platform (old way, keep variable if needed)
+                    trafficByPlatform[t.platform] = (trafficByPlatform[t.platform] || 0) + val;
+
+                    // Group by Category (new way for chart)
+                    const catKey = t.category || 'outros';
+                    const label = categoryLabelMap[catKey] || 'Outros';
+                    trafficByCategory[label] = (trafficByCategory[label] || 0) + val;
+                    
+                    // Populate Breakdown Cards
+                    if(breakdownMap[catKey]) {
+                        breakdownMap[catKey].val += val;
                     } else {
                         breakdownMap['outros'].val += val;
                     }
                 });
 
-                // Render Breakdown
+                // Render Breakdown Cards
                 const breakdownContainer = document.getElementById('traffic-breakdown-container');
                 breakdownContainer.innerHTML = '';
                 
@@ -1022,7 +1123,6 @@
                     }
                 });
                 
-                // Se estiver vazio, mostra mensagem
                 if(breakdownContainer.children.length === 0) {
                     breakdownContainer.innerHTML = `<div class="col-span-full text-center text-xs text-muted italic">Sem gastos de tráfego no período.</div>`;
                 }
@@ -1033,8 +1133,8 @@
                 const totalInvest = contentCost + trafficInvest;
                 document.getElementById('kpi-total-invest').innerText = totalInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-                // Gráficos
-                this.renderCharts(posts, trafficByPlatform, { done, pending, late });
+                // Gráficos (Passando trafficByCategory em vez de Platform)
+                this.renderCharts(posts, trafficByCategory, { done, pending, late });
             },
 
             renderCharts(posts, trafficData, statusCounts) {
@@ -1044,10 +1144,10 @@
 
                 const isDark = document.documentElement.classList.contains('dark');
                 const colorText = isDark ? '#94a3b8' : '#64748b';
-                const neonColors = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e'];
+                const neonColors = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#ec4899', '#6366f1'];
 
-                // Chart 1: Traffic
-                const tLabels = Object.keys(trafficData).map(k => k.replace('_', ' ').toUpperCase());
+                // Chart 1: Traffic by Category/Destination
+                const tLabels = Object.keys(trafficData);
                 const tValues = Object.values(trafficData);
                 
                 this.charts.traffic = new Chart(document.getElementById('trafficChart'), {
@@ -1203,6 +1303,131 @@
                     `;
                     list.appendChild(row);
                 });
+            },
+
+            // --- MANAGERS LOGIC ---
+
+            renderManagers() {
+                const list = document.getElementById('managers-list');
+                const empty = document.getElementById('managers-empty');
+                list.innerHTML = '';
+
+                // Filter items of docType 'manager_request'
+                const requests = this.data.filter(i => i.docType === 'manager_request');
+                requests.sort((a,b) => new Date(a.date) - new Date(b.date));
+
+                if(requests.length === 0) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                const today = new Date().toISOString().split('T')[0];
+
+                requests.forEach(item => {
+                    const row = document.createElement('tr');
+                    const date = item.date.split('-').reverse().join('/');
+                    
+                    let statusBadge;
+                    // Logic for Status Badge
+                    if (item.status === 'done') {
+                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-green bg-neon-green/10 border border-neon-green/20">Concluído</span>';
+                    } else {
+                         statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-pink bg-neon-pink/10 border border-neon-pink/20">Pendente</span>';
+                    }
+
+                    row.className = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
+                    row.innerHTML = `
+                        <td class="p-5">${statusBadge}</td>
+                        <td class="p-5 font-mono text-muted group-hover:text-neon-pink transition-colors">${date}</td>
+                        <td class="p-5 font-bold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-user-tie text-muted mr-2"></i>${item.managerName || 'N/A'}</td>
+                        <td class="p-5 font-medium text-main">${item.title}</td>
+                        <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="app.editManagerRequest('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-pink hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="app.deleteItemGeneric('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-red hover:shadow-glow transition-all" title="Excluir"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </td>
+                    `;
+                    list.appendChild(row);
+                });
+            },
+
+            openManagerModal(existing = null) {
+                const modal = document.getElementById('manager-modal');
+                modal.classList.remove('hidden');
+                document.getElementById('manager-form').reset();
+                const btnDelete = document.getElementById('btn-delete-manager');
+                
+                // Reset Button state
+                const btnSave = document.getElementById('btn-save-manager');
+                btnSave.disabled = false;
+                btnSave.innerHTML = "<span>Salvar</span>";
+
+                if(existing) {
+                    document.getElementById('manager-id').value = existing.id;
+                    document.getElementById('manager-title').value = existing.title;
+                    document.getElementById('manager-name').value = existing.managerName;
+                    document.getElementById('manager-date').value = existing.date;
+                    document.getElementById('manager-status').value = existing.status;
+                    document.getElementById('manager-notes').value = existing.notes || '';
+                    btnDelete.classList.remove('hidden');
+                } else {
+                    document.getElementById('manager-id').value = '';
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    document.getElementById('manager-date').value = `${y}-${m}-${d}`;
+                    btnDelete.classList.add('hidden');
+                }
+            },
+
+            closeManagerModal() { document.getElementById('manager-modal').classList.add('hidden'); },
+
+            editManagerRequest(id) {
+                const item = this.data.find(i => i.id === id);
+                if(item) this.openManagerModal(item);
+            },
+
+            async saveManagerRequest() {
+                const btnSave = document.getElementById('btn-save-manager');
+                btnSave.disabled = true;
+                btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
+
+                const id = document.getElementById('manager-id').value || this.generateId();
+                const newStatus = document.getElementById('manager-status').value;
+                const wasDone = this.data.find(i => i.id === id)?.status === 'done';
+
+                const item = {
+                    id: id,
+                    docType: 'manager_request',
+                    title: document.getElementById('manager-title').value,
+                    managerName: document.getElementById('manager-name').value,
+                    date: document.getElementById('manager-date').value,
+                    status: newStatus,
+                    notes: document.getElementById('manager-notes').value
+                };
+
+                if(!item.title || !item.managerName) {
+                    alert("Preencha o título e o nome do gestor");
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = "<span>Salvar</span>";
+                    return;
+                }
+
+                await this.saveItemGeneric(item);
+                this.closeManagerModal();
+
+                if (newStatus === 'done' && !wasDone) {
+                    this.celebrate();
+                }
+            },
+
+            async deleteManagerRequest() {
+                const id = document.getElementById('manager-id').value;
+                if(confirm("Excluir solicitação?")) {
+                    await this.deleteItemGeneric(id);
+                    this.closeManagerModal();
+                }
             },
 
             openTrafficModal(existing = null) {
@@ -1420,6 +1645,7 @@
                 if (!document.getElementById('view-dashboard').classList.contains('hidden')) this.renderDashboard();
                 if (!document.getElementById('view-traffic').classList.contains('hidden')) this.renderTraffic();
                 if (!document.getElementById('view-activities').classList.contains('hidden')) this.renderActivities();
+                if (!document.getElementById('view-managers').classList.contains('hidden')) this.renderManagers();
                 if (!document.getElementById('view-ideas').classList.contains('hidden')) this.renderIdeas();
                 // O calendário é pesado, só atualiza se estiver visível
                 if (!document.getElementById('view-calendar').classList.contains('hidden')) this.initCalendar();
