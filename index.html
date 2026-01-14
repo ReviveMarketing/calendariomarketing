@@ -629,7 +629,9 @@
                             <thead class="bg-slate-200/50 dark:bg-slate-900/50 text-muted uppercase text-[10px] tracking-wider font-bold">
                                 <tr>
                                     <th class="p-5">Status</th>
-                                    <th class="p-5">Data</th>
+                                    <!-- NOVA COLUNA: PRAZO -->
+                                    <th class="p-5">Prazo</th>
+                                    <th class="p-5">Data Pub.</th>
                                     <th class="p-5">Canal</th>
                                     <th class="p-5">Título</th>
                                     <th class="p-5 text-right">Ações</th>
@@ -673,10 +675,10 @@
         </main>
     </div>
 
-    <!-- MODAL POST -->
+    <!-- MODAL POST (Atualizado com Prazo e Conteúdo) -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
-            <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
+            <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative overflow-y-auto max-h-[90vh]">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-blue to-neon-purple"></div>
                 <h3 class="text-xl font-bold mb-6 text-main" id="modal-title">Novo Post</h3>
                 <form id="post-form" class="space-y-5">
@@ -685,6 +687,13 @@
                         <label class="block text-xs font-bold text-muted uppercase mb-1">Título</label>
                         <input type="text" id="post-title" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
                     </div>
+                    
+                    <!-- NOVO CAMPO: CONTEÚDO -->
+                    <div>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">Conteúdo / Legenda</label>
+                        <textarea id="post-content-text" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue min-h-[100px]" placeholder="Digite o texto do post..."></textarea>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Canal</label>
@@ -704,6 +713,7 @@
                             </select>
                         </div>
                     </div>
+                    
                     <div class="flex items-center gap-3 p-3 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-black/5 dark:border-white/5">
                         <input type="checkbox" id="post-has-cost" class="w-4 h-4 rounded border-slate-600 text-neon-blue focus:ring-neon-blue" onchange="document.getElementById('cost-group').classList.toggle('hidden')">
                         <label for="post-has-cost" class="text-sm text-muted font-medium">Tem Custo de Produção?</label>
@@ -712,10 +722,19 @@
                          <label class="block text-xs font-bold text-muted uppercase mb-1">Valor (R$)</label>
                          <input type="number" id="post-cost-value" step="0.01" class="w-full rounded-lg p-3 focus:border-neon-blue">
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-muted uppercase mb-1">Data</label>
-                        <input type="date" id="post-date" class="w-full rounded-lg p-3">
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                         <!-- NOVO CAMPO: PRAZO -->
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Prazo de Entrega</label>
+                            <input type="date" id="post-deadline" class="w-full rounded-lg p-3 border-neon-purple/30 focus:border-neon-purple">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Data Publicação</label>
+                            <input type="date" id="post-date" class="w-full rounded-lg p-3">
+                        </div>
                     </div>
+
                     <div>
                         <label class="block text-xs font-bold text-muted uppercase mb-1">Status</label>
                         <select id="post-status" class="w-full rounded-lg p-3">
@@ -1276,6 +1295,7 @@
                 posts.forEach(item => {
                     const row = document.createElement('tr');
                     const date = item.date.split('-').reverse().join('/');
+                    const deadline = item.deadline ? item.deadline.split('-').reverse().join('/') : '-';
                     
                     let statusBadge;
                     let rowClass = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
@@ -1293,6 +1313,7 @@
                     row.className = rowClass;
                     row.innerHTML = `
                         <td class="p-5">${statusBadge}</td>
+                        <td class="p-5 font-mono text-neon-purple font-bold text-xs">${deadline}</td>
                         <td class="p-5 font-mono text-muted group-hover:text-neon-blue transition-colors">${date}</td>
                         <td class="p-5 font-bold capitalize text-slate-700 dark:text-slate-300"><i class="fa-solid fa-hashtag text-muted mr-2"></i>${item.platform}</td>
                         <td class="p-5 font-medium text-main">${item.title}</td>
@@ -1520,9 +1541,11 @@
                 if(existing) {
                     document.getElementById('post-id').value = existing.id;
                     document.getElementById('post-title').value = existing.title;
+                    document.getElementById('post-content-text').value = existing.contentBody || '';
                     document.getElementById('post-platform').value = existing.platform;
                     document.getElementById('post-type').value = existing.type;
                     document.getElementById('post-date').value = existing.date;
+                    document.getElementById('post-deadline').value = existing.deadline || '';
                     document.getElementById('post-status').value = existing.status;
                     
                     document.getElementById('post-has-cost').checked = existing.hasCost || false;
@@ -1566,9 +1589,11 @@
                     id: id,
                     docType: 'post',
                     title: document.getElementById('post-title').value,
+                    contentBody: document.getElementById('post-content-text').value,
                     platform: document.getElementById('post-platform').value,
                     type: document.getElementById('post-type').value,
                     date: document.getElementById('post-date').value,
+                    deadline: document.getElementById('post-deadline').value,
                     status: newStatus,
                     hasCost: document.getElementById('post-has-cost').checked,
                     costValue: document.getElementById('post-cost-value').value
