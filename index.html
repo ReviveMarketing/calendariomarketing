@@ -585,6 +585,8 @@
                             <thead class="bg-slate-200/50 dark:bg-slate-900/50 text-muted uppercase text-[10px] tracking-wider font-bold">
                                 <tr>
                                     <th class="p-5">Status</th>
+                                    <!-- NOVA COLUNA -->
+                                    <th class="p-5">Prioridade</th>
                                     <th class="p-5">Data</th>
                                     <th class="p-5">Gestor/Solicitante</th>
                                     <th class="p-5">Demanda</th>
@@ -629,9 +631,8 @@
                             <thead class="bg-slate-200/50 dark:bg-slate-900/50 text-muted uppercase text-[10px] tracking-wider font-bold">
                                 <tr>
                                     <th class="p-5">Status</th>
-                                    <!-- NOVA COLUNA: PRAZO -->
                                     <th class="p-5">Prazo</th>
-                                    <th class="p-5">Data Pub.</th>
+                                    <th class="p-5">Solicitante</th>
                                     <th class="p-5">Canal</th>
                                     <th class="p-5">Título</th>
                                     <th class="p-5 text-right">Ações</th>
@@ -675,23 +676,54 @@
         </main>
     </div>
 
-    <!-- MODAL POST (Atualizado com Prazo e Conteúdo) -->
+    <!-- MODAL POST (Atualizado) -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative overflow-y-auto max-h-[90vh]">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-blue to-neon-purple"></div>
                 <h3 class="text-xl font-bold mb-6 text-main" id="modal-title">Novo Post</h3>
-                <form id="post-form" class="space-y-5">
+                <form id="post-form" class="space-y-4">
                     <input type="hidden" id="post-id">
-                    <div>
-                        <label class="block text-xs font-bold text-muted uppercase mb-1">Título</label>
-                        <input type="text" id="post-title" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
-                    </div>
                     
-                    <!-- NOVO CAMPO: CONTEÚDO -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Título</label>
+                            <input type="text" id="post-title" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
+                        </div>
+                        
+                        <!-- NOVO CAMPO: SOLICITANTE -->
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Nome (Solicitante)</label>
+                            <input type="text" id="post-requester" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue" placeholder="Quem pediu?">
+                        </div>
+
+                        <!-- NOVO CAMPO: FORMATO -->
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Formato Conteúdo</label>
+                            <select id="post-format" class="w-full rounded-lg p-3">
+                                <option value="foto">Foto</option>
+                                <option value="video">Vídeo</option>
+                                <option value="arte_estatica">Arte Estática</option>
+                                <option value="outro">Outro</option>
+                            </select>
+                        </div>
+
+                        <!-- NOVO CAMPO: URGENCIA/PRAZO -->
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Prioridade / Prazo</label>
+                            <select id="post-urgency" class="w-full rounded-lg p-3 font-bold text-slate-600 dark:text-slate-300">
+                                <option value="urgente" class="text-neon-red">⚡ Urgente (24h)</option>
+                                <option value="rapido" class="text-neon-yellow">🚀 Rápido (3-5 dias)</option>
+                                <option value="normal" class="text-neon-blue">📅 Normal (7-10 dias)</option>
+                                <option value="outro">Outro</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- DESCRIÇÃO ATUALIZADA -->
                     <div>
-                        <label class="block text-xs font-bold text-muted uppercase mb-1">Conteúdo / Legenda</label>
-                        <textarea id="post-content-text" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue min-h-[100px]" placeholder="Digite o texto do post..."></textarea>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">O que você quer fazer? (Detalhes)</label>
+                        <textarea id="post-content-text" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue min-h-[100px]" placeholder="Descreva aqui o modo texto..."></textarea>
                     </div>
 
                     <div class="grid grid-cols-2 gap-4">
@@ -705,9 +737,9 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-muted uppercase mb-1">Tipo</label>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Tipo (Rede Social)</label>
                             <select id="post-type" class="w-full rounded-lg p-3">
-                                <option value="post">Post</option>
+                                <option value="post">Post (Feed)</option>
                                 <option value="reels">Reels</option>
                                 <option value="stories">Stories</option>
                             </select>
@@ -724,9 +756,8 @@
                     </div>
                     
                     <div class="grid grid-cols-2 gap-4">
-                         <!-- NOVO CAMPO: PRAZO -->
                         <div>
-                            <label class="block text-xs font-bold text-muted uppercase mb-1">Prazo de Entrega</label>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Prazo (Data)</label>
                             <input type="date" id="post-deadline" class="w-full rounded-lg p-3 border-neon-purple/30 focus:border-neon-purple">
                         </div>
                         <div>
@@ -824,22 +855,48 @@
         </div>
     </div>
 
-    <!-- NEW: MODAL MANAGER REQUEST -->
+    <!-- MODAL MANAGER REQUEST (Atualizado) -->
     <div id="manager-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeManagerModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-pink to-neon-purple"></div>
                 <h3 class="text-xl font-bold mb-6 text-main" id="manager-modal-title">Nova Solicitação</h3>
-                <form id="manager-form" class="space-y-5">
+                <form id="manager-form" class="space-y-4">
                     <input type="hidden" id="manager-id">
+                    
                     <div>
                         <label class="block text-xs font-bold text-muted uppercase mb-1">Título da Demanda</label>
                         <input type="text" id="manager-title" class="w-full rounded-lg p-3 focus:border-neon-pink focus:ring-1 focus:ring-neon-pink">
                     </div>
+                    
                     <div>
-                        <label class="block text-xs font-bold text-muted uppercase mb-1">Gestor/Solicitante</label>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">Nome (Solicitante/Gestor)</label>
                         <input type="text" id="manager-name" class="w-full rounded-lg p-3" placeholder="Nome do Gestor">
                     </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <!-- NOVO CAMPO: FORMATO -->
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Formato</label>
+                            <select id="manager-format" class="w-full rounded-lg p-3">
+                                <option value="foto">Foto</option>
+                                <option value="video">Vídeo</option>
+                                <option value="arte_estatica">Arte Estática</option>
+                                <option value="outro">Outro</option>
+                            </select>
+                        </div>
+                        <!-- NOVO CAMPO: URGENCIA/PRAZO -->
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Prioridade / Prazo</label>
+                            <select id="manager-urgency" class="w-full rounded-lg p-3 font-bold text-slate-600 dark:text-slate-300">
+                                <option value="urgente" class="text-neon-red">⚡ Urgente (24h)</option>
+                                <option value="rapido" class="text-neon-yellow">🚀 Rápido (3-5 dias)</option>
+                                <option value="normal" class="text-neon-blue">📅 Normal (7-10 dias)</option>
+                                <option value="outro">Outro</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Data</label>
@@ -854,8 +911,8 @@
                         </div>
                     </div>
                     <div>
-                         <label class="block text-xs font-bold text-muted uppercase mb-1">Detalhes</label>
-                         <textarea id="manager-notes" class="w-full rounded-lg p-3" rows="3"></textarea>
+                         <label class="block text-xs font-bold text-muted uppercase mb-1">O que você quer fazer? (Detalhes)</label>
+                         <textarea id="manager-notes" class="w-full rounded-lg p-3 min-h-[100px]" rows="3" placeholder="Modo texto..."></textarea>
                     </div>
                 </form>
                 <div class="mt-8 flex justify-end gap-3">
@@ -1296,8 +1353,10 @@
                     const row = document.createElement('tr');
                     const date = item.date.split('-').reverse().join('/');
                     const deadline = item.deadline ? item.deadline.split('-').reverse().join('/') : '-';
+                    const urgency = item.urgency || '';
                     
                     let statusBadge;
+                    let urgencyBadge = '';
                     let rowClass = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
                     
                     // Lógica Visual de Atraso
@@ -1310,12 +1369,18 @@
                          statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-yellow bg-neon-yellow/10 border border-neon-yellow/20">Pendente</span>';
                     }
 
+                    // Urgency Visual
+                    if(urgency === 'urgente') urgencyBadge = '<span title="Urgente" class="text-neon-red ml-1"><i class="fa-solid fa-bolt"></i></span>';
+                    if(urgency === 'rapido') urgencyBadge = '<span title="Rápido" class="text-neon-yellow ml-1"><i class="fa-solid fa-gauge-high"></i></span>';
+
                     row.className = rowClass;
                     row.innerHTML = `
                         <td class="p-5">${statusBadge}</td>
-                        <td class="p-5 font-mono text-neon-purple font-bold text-xs">${deadline}</td>
+                        <td class="p-5 font-mono text-neon-purple font-bold text-xs">
+                            ${deadline} ${urgencyBadge}
+                        </td>
+                        <td class="p-5 text-sm font-bold text-slate-600 dark:text-slate-400">${item.requester || '-'}</td>
                         <td class="p-5 font-mono text-muted group-hover:text-neon-blue transition-colors">${date}</td>
-                        <td class="p-5 font-bold capitalize text-slate-700 dark:text-slate-300"><i class="fa-solid fa-hashtag text-muted mr-2"></i>${item.platform}</td>
                         <td class="p-5 font-medium text-main">${item.title}</td>
                         <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onclick="app.editPost('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-blue hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
@@ -1348,6 +1413,7 @@
                 requests.forEach(item => {
                     const row = document.createElement('tr');
                     const date = item.date.split('-').reverse().join('/');
+                    const urgency = item.urgency || 'normal';
                     
                     let statusBadge;
                     // Logic for Status Badge
@@ -1357,9 +1423,17 @@
                          statusBadge = '<span class="px-2 py-1 rounded text-[10px] font-bold uppercase text-neon-pink bg-neon-pink/10 border border-neon-pink/20">Pendente</span>';
                     }
 
+                    // Logic for Urgency Badge
+                    let urgencyText = 'Normal';
+                    let urgencyClass = 'text-muted';
+                    if(urgency === 'urgente') { urgencyText = 'Urgente'; urgencyClass = 'text-neon-red font-bold animate-pulse'; }
+                    if(urgency === 'rapido') { urgencyText = 'Rápido'; urgencyClass = 'text-neon-yellow font-bold'; }
+                    if(urgency === 'outro') { urgencyText = 'Outro'; urgencyClass = 'text-neon-blue'; }
+
                     row.className = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
                     row.innerHTML = `
                         <td class="p-5">${statusBadge}</td>
+                        <td class="p-5 uppercase text-xs ${urgencyClass}">${urgencyText}</td>
                         <td class="p-5 font-mono text-muted group-hover:text-neon-pink transition-colors">${date}</td>
                         <td class="p-5 font-bold text-slate-700 dark:text-slate-300"><i class="fa-solid fa-user-tie text-muted mr-2"></i>${item.managerName || 'N/A'}</td>
                         <td class="p-5 font-medium text-main">${item.title}</td>
@@ -1390,6 +1464,8 @@
                     document.getElementById('manager-date').value = existing.date;
                     document.getElementById('manager-status').value = existing.status;
                     document.getElementById('manager-notes').value = existing.notes || '';
+                    document.getElementById('manager-format').value = existing.format || 'outro';
+                    document.getElementById('manager-urgency').value = existing.urgency || 'normal';
                     btnDelete.classList.remove('hidden');
                 } else {
                     document.getElementById('manager-id').value = '';
@@ -1425,7 +1501,9 @@
                     managerName: document.getElementById('manager-name').value,
                     date: document.getElementById('manager-date').value,
                     status: newStatus,
-                    notes: document.getElementById('manager-notes').value
+                    notes: document.getElementById('manager-notes').value,
+                    format: document.getElementById('manager-format').value,
+                    urgency: document.getElementById('manager-urgency').value
                 };
 
                 if(!item.title || !item.managerName) {
@@ -1548,6 +1626,10 @@
                     document.getElementById('post-deadline').value = existing.deadline || '';
                     document.getElementById('post-status').value = existing.status;
                     
+                    document.getElementById('post-requester').value = existing.requester || '';
+                    document.getElementById('post-format').value = existing.format || 'outro';
+                    document.getElementById('post-urgency').value = existing.urgency || 'normal';
+                    
                     document.getElementById('post-has-cost').checked = existing.hasCost || false;
                     document.getElementById('cost-group').classList.toggle('hidden', !existing.hasCost);
                     document.getElementById('post-cost-value').value = existing.costValue || '';
@@ -1595,6 +1677,9 @@
                     date: document.getElementById('post-date').value,
                     deadline: document.getElementById('post-deadline').value,
                     status: newStatus,
+                    requester: document.getElementById('post-requester').value,
+                    format: document.getElementById('post-format').value,
+                    urgency: document.getElementById('post-urgency').value,
                     hasCost: document.getElementById('post-has-cost').checked,
                     costValue: document.getElementById('post-cost-value').value
                 };
