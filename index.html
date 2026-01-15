@@ -28,11 +28,6 @@
                             yellow: '#f59e0b', 
                             pink: '#ec4899',
                         },
-                        // Cores Redes Sociais
-                        instagram: '#C13584',
-                        youtube: '#FF0000',
-                        tiktok: '#000000',
-                        linkedin: '#0077b5',
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
@@ -409,8 +404,7 @@
 
                 <!-- 1. DASHBOARD VIEW -->
                 <div id="view-dashboard" class="view-section animate-fade-in hidden">
-                    
-                    <!-- Header & Date Filter -->
+                    <!-- ... Dashboard Content (igual) ... -->
                     <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8">
                         <div>
                             <h2 class="text-3xl font-bold text-main mb-1">Visão Geral</h2>
@@ -435,7 +429,7 @@
                             </button>
                         </div>
                     </div>
-
+                    
                     <!-- KPI Cards Row 1: Financeiro -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <!-- Investimento Tráfego -->
@@ -483,16 +477,15 @@
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- NEW: Detalhamento de Tráfego -->
+
+                    <!-- Detalhamento de Tráfego -->
                     <div class="mb-8 animate-fade-in">
                         <h3 class="text-sm font-bold mb-4 text-muted uppercase tracking-wide border-l-4 border-neon-green pl-3">Detalhamento de Verba (Vagas & Leads)</h3>
                         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4" id="traffic-breakdown-container">
-                            <!-- JS will populate -->
                         </div>
                     </div>
 
-                    <!-- KPI Cards Row 2: Status & Atrasos (NOVO) -->
+                    <!-- KPI Cards Row 2 -->
                     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                         <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition">
                             <p class="text-[10px] text-muted uppercase font-bold tracking-wider mb-1">Total</p>
@@ -506,14 +499,12 @@
                             <p class="text-[10px] text-neon-yellow uppercase font-bold tracking-wider mb-1">Pendentes</p>
                             <h3 class="text-2xl font-bold text-main" id="kpi-pending">0</h3>
                         </div>
-                        <!-- KPI: ATRASADOS -->
                         <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition border-b-2 border-b-neon-red shadow-[0_0_10px_rgba(244,63,94,0.1)]">
                             <p class="text-[10px] text-neon-red uppercase font-bold tracking-wider mb-1 flex justify-center items-center gap-1">
                                 <i class="fa-solid fa-triangle-exclamation"></i> Atrasados
                             </p>
                             <h3 class="text-2xl font-bold text-main" id="kpi-late">0</h3>
                         </div>
-                        
                         <div class="glass-panel p-4 rounded-xl text-center hover:bg-white/5 transition">
                             <p class="text-[10px] text-neon-blue uppercase font-bold tracking-wider mb-1">Taxa</p>
                             <h3 class="text-2xl font-bold text-main" id="kpi-rate">0%</h3>
@@ -522,23 +513,18 @@
 
                     <!-- Charts Area -->
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        <!-- Chart 1 -->
                         <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
                             <h3 class="text-sm font-bold mb-6 text-muted uppercase tracking-wide border-l-2 border-neon-green pl-3">Ads por Destino/Categoria</h3>
                             <div class="relative h-56">
                                 <canvas id="trafficChart"></canvas>
                             </div>
                         </div>
-
-                        <!-- Chart 2 -->
                         <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
                             <h3 class="text-sm font-bold mb-6 text-muted uppercase tracking-wide border-l-2 border-neon-blue pl-3">Volume Conteúdo</h3>
                             <div class="relative h-56">
                                 <canvas id="platformChart"></canvas>
                             </div>
                         </div>
-
-                         <!-- Chart 3 -->
                          <div class="glass-panel p-6 rounded-2xl lg:col-span-1">
                             <h3 class="text-sm font-bold mb-6 text-muted uppercase tracking-wide border-l-2 border-neon-yellow pl-3">Status Geral</h3>
                             <div class="relative h-56">
@@ -550,7 +536,8 @@
 
                 <!-- 2. TRAFFIC VIEW -->
                 <div id="view-traffic" class="view-section hidden animate-fade-in">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+                    <!-- ... Traffic Content (igual) ... -->
+                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Tráfego Pago</h2>
                             <p class="text-sm text-muted mt-1">Gestão de investimentos em Ads.</p>
@@ -592,6 +579,7 @@
 
                 <!-- NEW: MANAGERS VIEW -->
                 <div id="view-managers" class="view-section hidden animate-fade-in">
+                    <!-- ... Managers Content (igual) ... -->
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Solicitação de Gestores</h2>
@@ -609,7 +597,6 @@
                             <thead class="bg-slate-200/50 dark:bg-slate-900/50 text-muted uppercase text-[10px] tracking-wider font-bold">
                                 <tr>
                                     <th class="p-5">Status</th>
-                                    <!-- NOVA COLUNA -->
                                     <th class="p-5">Prioridade</th>
                                     <th class="p-5">Data</th>
                                     <th class="p-5">Gestor/Solicitante</th>
@@ -635,6 +622,7 @@
 
                 <!-- 4. ACTIVITIES VIEW -->
                 <div id="view-activities" class="view-section hidden animate-fade-in">
+                    <!-- ... Activities Content (igual) ... -->
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Conteúdo</h2>
@@ -681,6 +669,7 @@
 
                 <!-- 6. CONFIG VIEW -->
                 <div id="view-backup" class="view-section hidden animate-fade-in">
+                    <!-- ... Config Content (igual) ... -->
                     <h2 class="text-3xl font-bold text-main mb-6">Configurações Avançadas</h2>
                     <div class="glass-panel p-8 rounded-2xl max-w-2xl">
                         <label class="block text-xs font-bold mb-2 text-muted uppercase tracking-wide">Configuração JSON do Firebase</label>
@@ -700,7 +689,7 @@
         </main>
     </div>
 
-    <!-- MODAL POST (Atualizado) -->
+    <!-- MODAL POST (Atualizado com Lógica de Datas) -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative overflow-y-auto max-h-[90vh]">
@@ -715,13 +704,13 @@
                             <input type="text" id="post-title" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue">
                         </div>
                         
-                        <!-- NOVO CAMPO: SOLICITANTE -->
+                        <!-- SOLICITANTE -->
                         <div class="md:col-span-2">
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Nome (Solicitante)</label>
                             <input type="text" id="post-requester" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue" placeholder="Quem pediu?">
                         </div>
 
-                        <!-- NOVO CAMPO: FORMATO -->
+                        <!-- FORMATO -->
                         <div>
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Formato Conteúdo</label>
                             <select id="post-format" class="w-full rounded-lg p-3">
@@ -732,7 +721,7 @@
                             </select>
                         </div>
 
-                        <!-- NOVO CAMPO: URGENCIA/PRAZO -->
+                        <!-- URGENCIA/PRAZO -->
                         <div>
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Prioridade / Prazo</label>
                             <select id="post-urgency" class="w-full rounded-lg p-3 font-bold text-slate-600 dark:text-slate-300">
@@ -744,7 +733,7 @@
                         </div>
                     </div>
 
-                    <!-- NOVO GRUPO: REFERÊNCIAS -->
+                    <!-- REFERÊNCIAS -->
                     <div class="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
                         <label class="block text-xs font-bold text-muted uppercase mb-2">Materiais de Referência (Opcional)</label>
                         
@@ -760,7 +749,7 @@
                         </div>
                     </div>
 
-                    <!-- DESCRIÇÃO ATUALIZADA -->
+                    <!-- DESCRIÇÃO -->
                     <div>
                         <label class="block text-xs font-bold text-muted uppercase mb-1">O que você quer fazer? (Detalhes)</label>
                         <textarea id="post-content-text" class="w-full rounded-lg p-3 focus:border-neon-blue focus:ring-1 focus:ring-neon-blue min-h-[100px]" placeholder="Descreva aqui o modo texto..."></textarea>
@@ -795,20 +784,23 @@
                          <input type="number" id="post-cost-value" step="0.01" class="w-full rounded-lg p-3 focus:border-neon-blue">
                     </div>
                     
+                    <!-- NOVOS CAMPOS DE DATA -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-muted uppercase mb-1">Prazo (Data)</label>
-                            <input type="date" id="post-deadline" class="w-full rounded-lg p-3 border-neon-purple/30 focus:border-neon-purple">
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Data da Solicitação</label>
+                            <input type="date" id="post-date" class="w-full rounded-lg p-3 border-neon-blue/30 focus:border-neon-blue">
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-muted uppercase mb-1">Data Publicação</label>
-                            <input type="date" id="post-date" class="w-full rounded-lg p-3">
+                        <!-- Campo oculto que aparece só quando concluído -->
+                        <div id="completion-date-group" class="hidden animate-fade-in">
+                            <label class="block text-xs font-bold text-neon-green uppercase mb-1">Data da Conclusão</label>
+                            <input type="date" id="post-completion-date" class="w-full rounded-lg p-3 border-neon-green/30 focus:border-neon-green font-bold text-neon-green">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-muted uppercase mb-1">Status</label>
-                        <select id="post-status" class="w-full rounded-lg p-3">
+                        <!-- Adicionado evento onchange -->
+                        <select id="post-status" class="w-full rounded-lg p-3" onchange="app.toggleCompletionDate()">
                             <option value="pending">Pendente</option>
                             <option value="done">Concluído</option>
                         </select>
@@ -825,8 +817,9 @@
         </div>
     </div>
 
-    <!-- MODAL TRAFFIC (Atualizado com Upload) -->
+    <!-- MODAL TRAFFIC (Igual) -->
     <div id="traffic-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeTrafficModal()">
+         <!-- ... Traffic Modal Content ... -->
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-md p-8 relative">
                 <div class="absolute top-0 left-0 w-full h-1 bg-neon-green"></div>
@@ -904,8 +897,9 @@
         </div>
     </div>
 
-    <!-- MODAL MANAGER REQUEST (Atualizado) -->
+    <!-- MODAL MANAGER REQUEST (Igual) -->
     <div id="manager-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeManagerModal()">
+         <!-- ... Manager Modal Content ... -->
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-pink to-neon-purple"></div>
@@ -977,7 +971,8 @@
 
     <!-- JOIN ROOM MODAL -->
     <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" onclick="if(event.target===this) app.closeJoinModal()">
-        <div class="flex min-h-full items-center justify-center p-4 modal-bg">
+         <!-- ... Join Room Content ... -->
+         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl p-8 w-full max-w-sm text-center">
                 <h3 class="text-xl font-bold mb-2 text-main">Entrar em Sala</h3>
                 <p class="text-sm text-muted mb-6">Digite o código da sala para conectar.</p>
@@ -1163,6 +1158,7 @@
                 });
             },
 
+            // --- Lógica de Renderização e Gráficos (Dashboard, Charts, Traffic, Managers) ---
             renderDashboard() {
                 const filtered = this.getFilteredData();
                 const today = new Date().toISOString().split('T')[0];
@@ -1173,7 +1169,7 @@
                 
                 // Lógica de Atrasados: status != done E data < hoje
                 const late = posts.filter(i => i.status !== 'done' && i.date < today).length;
-                const pending = posts.filter(i => i.status === 'pending' && i.date >= today).length; // Pendentes FUTUROS ou HOJE
+                const pending = posts.filter(i => i.status === 'pending' && i.date >= today).length; 
                 
                 const total = posts.length;
                 const rate = total > 0 ? Math.round((done/total)*100) : 0;
@@ -1186,17 +1182,15 @@
                 document.getElementById('kpi-total').innerText = total;
                 document.getElementById('kpi-done').innerText = done;
                 document.getElementById('kpi-pending').innerText = pending;
-                document.getElementById('kpi-late').innerText = late; // Novo KPI Visual
+                document.getElementById('kpi-late').innerText = late;
                 document.getElementById('kpi-rate').innerText = `${rate}%`;
                 document.getElementById('kpi-content-cost').innerText = contentCost.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
                 // 2. Dados de Tráfego
                 const trafficItems = filtered.filter(i => i.docType === 'traffic');
                 let trafficInvest = 0;
-                const trafficByPlatform = {};
-                const trafficByCategory = {}; // NEW for Chart
+                const trafficByCategory = {}; 
                 
-                // Categorias Específicas
                 const breakdownMap = {
                     'vagas_mg': { label: 'Vagas MG', val: 0, color: 'text-blue-400' },
                     'vagas_sc': { label: 'Vagas SC', val: 0, color: 'text-blue-400' },
@@ -1215,16 +1209,10 @@
                 trafficItems.forEach(t => {
                     const val = parseFloat(t.value || 0);
                     trafficInvest += val;
-                    
-                    // Group by Platform (old way, keep variable if needed)
-                    trafficByPlatform[t.platform] = (trafficByPlatform[t.platform] || 0) + val;
-
-                    // Group by Category (new way for chart)
                     const catKey = t.category || 'outros';
                     const label = categoryLabelMap[catKey] || 'Outros';
                     trafficByCategory[label] = (trafficByCategory[label] || 0) + val;
                     
-                    // Populate Breakdown Cards
                     if(breakdownMap[catKey]) {
                         breakdownMap[catKey].val += val;
                     } else {
@@ -1232,7 +1220,6 @@
                     }
                 });
 
-                // Render Breakdown Cards
                 const breakdownContainer = document.getElementById('traffic-breakdown-container');
                 breakdownContainer.innerHTML = '';
                 
@@ -1253,12 +1240,9 @@
                 }
 
                 document.getElementById('kpi-traffic').innerText = trafficInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-                // 3. Total Geral
                 const totalInvest = contentCost + trafficInvest;
                 document.getElementById('kpi-total-invest').innerText = totalInvest.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-                // Gráficos (Passando trafficByCategory em vez de Platform)
                 this.renderCharts(posts, trafficByCategory, { done, pending, late });
             },
 
@@ -1271,7 +1255,6 @@
                 const colorText = isDark ? '#94a3b8' : '#64748b';
                 const neonColors = ['#06b6d4', '#8b5cf6', '#10b981', '#f59e0b', '#f43f5e', '#ec4899', '#6366f1'];
 
-                // Chart 1: Traffic by Category/Destination
                 const tLabels = Object.keys(trafficData);
                 const tValues = Object.values(trafficData);
                 
@@ -1294,7 +1277,6 @@
                     }
                 });
 
-                // Chart 2: Content
                 const platforms = ['instagram', 'youtube', 'tiktok', 'others'];
                 const pCounts = platforms.map(p => posts.filter(i => i.platform === p).length);
                 
@@ -1321,7 +1303,6 @@
                     }
                 });
 
-                // Chart 3: Status (Com Atrasados)
                 this.charts.status = new Chart(document.getElementById('statusChart'), {
                     type: 'pie',
                     data: {
@@ -1445,212 +1426,78 @@
                 });
             },
 
-            openManagerModal(existing = null) {
-                const modal = document.getElementById('manager-modal');
-                const btnDelete = document.getElementById('btn-delete-manager');
-                modal.classList.remove('hidden');
-                document.getElementById('manager-form').reset();
+            renderActivities() {
+                const list = document.getElementById('activities-list');
+                list.innerHTML = '';
                 
-                // Reset Button state
-                const btnSave = document.getElementById('btn-save-manager');
-                btnSave.disabled = false;
-                btnSave.innerHTML = "<span>Salvar</span>";
+                const items = this.data.filter(i => !i.docType || i.docType === 'post');
+                items.sort((a,b) => new Date(a.date) - new Date(b.date));
 
-                if(existing) {
-                    document.getElementById('manager-id').value = existing.id;
-                    document.getElementById('manager-title').value = existing.title;
-                    document.getElementById('manager-name').value = existing.requester;
-                    document.getElementById('manager-format').value = existing.format || 'outro';
-                    document.getElementById('manager-urgency').value = existing.urgency || 'normal';
-                    document.getElementById('manager-date').value = existing.date;
-                    document.getElementById('manager-status').value = existing.status;
-                    document.getElementById('manager-notes').value = existing.notes || '';
-                    
-                    btnDelete.classList.remove('hidden');
-                } else {
-                    document.getElementById('manager-id').value = '';
-                    const today = new Date();
-                    const y = today.getFullYear();
-                    const m = String(today.getMonth() + 1).padStart(2, '0');
-                    const d = String(today.getDate()).padStart(2, '0');
-                    document.getElementById('manager-date').value = `${y}-${m}-${d}`;
-                    btnDelete.classList.add('hidden');
-                }
-            },
-
-            closeManagerModal() { document.getElementById('manager-modal').classList.add('hidden'); },
-
-            editManagerRequest(id) {
-                const item = this.data.find(i => i.id === id);
-                if(item) this.openManagerModal(item);
-            },
-
-            async saveManagerRequest() {
-                const btnSave = document.getElementById('btn-save-manager');
-                btnSave.disabled = true;
-                btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
-
-                const id = document.getElementById('manager-id').value || this.generateId();
-                
-                const item = {
-                    id: id,
-                    docType: 'manager_request',
-                    title: document.getElementById('manager-title').value,
-                    requester: document.getElementById('manager-name').value,
-                    format: document.getElementById('manager-format').value,
-                    urgency: document.getElementById('manager-urgency').value,
-                    date: document.getElementById('manager-date').value,
-                    status: document.getElementById('manager-status').value,
-                    notes: document.getElementById('manager-notes').value
+                const statusMap = {
+                    'pending': '<span class="text-neon-yellow font-bold"><i class="fa-regular fa-clock"></i> Pendente</span>',
+                    'done': '<span class="text-neon-green font-bold"><i class="fa-solid fa-check"></i> Feito</span>'
+                };
+                const urgencyMap = {
+                    'urgente': '<span class="text-neon-red font-bold">⚡ Urgente</span>',
+                    'rapido': '<span class="text-neon-yellow font-bold">🚀 Rápido</span>',
+                    'normal': '<span class="text-neon-blue font-bold">📅 Normal</span>',
+                    'outro': '<span class="text-muted">Outro</span>'
                 };
 
-                if(!item.title) { 
-                    alert("Preencha o título"); 
-                    btnSave.disabled = false;
-                    btnSave.innerHTML = "<span>Salvar</span>";
-                    return; 
-                }
-                
-                await this.saveItemGeneric(item);
-                this.closeManagerModal();
-            },
-
-            async deleteManagerRequest() {
-                const id = document.getElementById('manager-id').value;
-                if(confirm("Excluir esta solicitação?")) {
-                    await this.deleteItemGeneric(id);
-                    this.closeManagerModal();
-                }
-            },
-
-            openTrafficModal(existing = null) {
-                const modal = document.getElementById('traffic-modal');
-                const btnDelete = document.getElementById('btn-delete-traffic');
-                const fileLink = document.getElementById('traffic-file-link');
-                modal.classList.remove('hidden');
-                document.getElementById('traffic-form').reset();
-                
-                // Reset Button state
-                const btnSave = document.getElementById('btn-save-traffic');
-                btnSave.disabled = false;
-                btnSave.innerHTML = "<span>Salvar</span>";
-
-                if(existing) {
-                    document.getElementById('traffic-id').value = existing.id;
-                    document.getElementById('traffic-platform').value = existing.platform;
-                    document.getElementById('traffic-category').value = existing.category || 'outros';
-                    document.getElementById('traffic-value').value = existing.value;
-                    document.getElementById('traffic-date').value = existing.date;
-                    document.getElementById('traffic-method').value = existing.paymentMethod;
-                    document.getElementById('traffic-notes').value = existing.notes;
+                items.forEach(item => {
+                    const date = item.date.split('-').reverse().join('/');
+                    const statusClass = item.status === 'done' ? 'border-l-4 border-l-neon-green' : 'border-l-4 border-l-neon-yellow';
                     
-                    if(existing.attachmentUrl) {
-                        fileLink.classList.remove('hidden');
-                        fileLink.innerHTML = `<a href="${existing.attachmentUrl}" target="_blank" class="text-xs text-neon-blue hover:underline flex items-center gap-1"><i class="fa-solid fa-eye"></i> Ver comprovante atual</a>`;
-                    } else {
-                        fileLink.classList.add('hidden');
+                    // Exibição da Data de Conclusão se existir
+                    let dateDisplay = date;
+                    if (item.status === 'done' && item.completionDate) {
+                        const doneDate = item.completionDate.split('-').reverse().join('/');
+                        dateDisplay += `<br><span class="text-[10px] text-neon-green">Concluído: ${doneDate}</span>`;
                     }
 
-                    btnDelete.classList.remove('hidden');
+                    const row = document.createElement('tr');
+                    row.className = `hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group ${statusClass}`;
+                    row.innerHTML = `
+                        <td class="p-5">${statusMap[item.status] || item.status}</td>
+                        <td class="p-5 font-mono text-muted text-xs">${dateDisplay}</td>
+                        <td class="p-5 font-bold text-xs">${item.requester || '-'}</td>
+                        <td class="p-5 text-xs capitalize">${item.platform || '-'}</td>
+                        <td class="p-5">
+                             <div class="font-bold text-main">${item.title}</div>
+                             <div class="text-[10px] mt-1">${urgencyMap[item.urgency] || ''}</div>
+                        </td>
+                        <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="app.editPost('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-blue hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="app.deleteItemGeneric('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-red hover:shadow-glow transition-all" title="Excluir"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </td>
+                    `;
+                    list.appendChild(row);
+                });
+            },
+
+            // --- Lógica de Modais e Salvamento ---
+
+            // Função auxiliar para mostrar/esconder data de conclusão
+            toggleCompletionDate() {
+                const status = document.getElementById('post-status').value;
+                const group = document.getElementById('completion-date-group');
+                const input = document.getElementById('post-completion-date');
+                
+                if (status === 'done') {
+                    group.classList.remove('hidden');
+                    // Se estiver vazio, sugere a data de hoje
+                    if (!input.value) {
+                        const today = new Date();
+                        const y = today.getFullYear();
+                        const m = String(today.getMonth() + 1).padStart(2, '0');
+                        const d = String(today.getDate()).padStart(2, '0');
+                        input.value = `${y}-${m}-${d}`;
+                    }
                 } else {
-                    document.getElementById('traffic-id').value = '';
-                    document.getElementById('traffic-category').value = 'outros';
-                    const today = new Date();
-                    const y = today.getFullYear();
-                    const m = String(today.getMonth() + 1).padStart(2, '0');
-                    const d = String(today.getDate()).padStart(2, '0');
-                    document.getElementById('traffic-date').value = `${y}-${m}-${d}`;
-                    fileLink.classList.add('hidden');
-                    btnDelete.classList.add('hidden');
+                    group.classList.add('hidden');
+                    input.value = '';
                 }
             },
-
-            closeTrafficModal() { document.getElementById('traffic-modal').classList.add('hidden'); },
-
-            editTraffic(id) {
-                const item = this.data.find(i => i.id === id);
-                if(item) this.openTrafficModal(item);
-            },
-
-            async saveTraffic() {
-                const btnSave = document.getElementById('btn-save-traffic');
-                btnSave.disabled = true;
-                btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
-
-                const id = document.getElementById('traffic-id').value || this.generateId();
-                const existingItem = this.data.find(i => i.id === id);
-                
-                const fileInput = document.getElementById('traffic-file');
-                const file = fileInput.files[0];
-                let attachmentUrl = existingItem ? existingItem.attachmentUrl : null;
-
-                // Lógica de Upload
-                if (file) {
-                    if (!window.storageOps) {
-                        alert("ERRO: O armazenamento na nuvem não está disponível. Verifique sua conexão ou configuração.");
-                        btnSave.disabled = false;
-                        btnSave.innerHTML = "<span>Salvar</span>";
-                        return;
-                    }
-
-                    try {
-                        const path = `artifacts/${window.effectiveAppId}/public/files/${id}/${file.name}`;
-                        const storageRef = window.storageOps.ref(window.storage, path);
-                        
-                        btnSave.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-spin"></i> Enviando arquivo...`;
-                        
-                        await window.storageOps.uploadBytes(storageRef, file);
-                        attachmentUrl = await window.storageOps.getDownloadURL(storageRef);
-                    } catch (error) {
-                        console.error("Upload Error:", error);
-                        alert("Erro ao enviar o arquivo. Verifique se o Storage está habilitado no Firebase Console.");
-                        btnSave.disabled = false;
-                        btnSave.innerHTML = "<span>Salvar</span>";
-                        return;
-                    }
-                }
-
-                // Validação: Exigir comprovante (novo ou existente)
-                if (!attachmentUrl) {
-                    alert("O comprovante é obrigatório para registrar o investimento!");
-                    btnSave.disabled = false;
-                    btnSave.innerHTML = "<span>Salvar</span>";
-                    return;
-                }
-
-                const item = {
-                    id: id,
-                    docType: 'traffic',
-                    platform: document.getElementById('traffic-platform').value,
-                    category: document.getElementById('traffic-category').value,
-                    value: document.getElementById('traffic-value').value,
-                    date: document.getElementById('traffic-date').value,
-                    paymentMethod: document.getElementById('traffic-method').value,
-                    notes: document.getElementById('traffic-notes').value,
-                    title: `Investimento ${document.getElementById('traffic-platform').value}`,
-                    attachmentUrl: attachmentUrl // Salva a URL
-                };
-
-                if(!item.value || !item.date) { 
-                    alert("Preencha valor e data"); 
-                    btnSave.disabled = false;
-                    btnSave.innerHTML = "<span>Salvar</span>";
-                    return; 
-                }
-                
-                await this.saveItemGeneric(item);
-                this.closeTrafficModal();
-            },
-
-            async deleteTraffic() {
-                const id = document.getElementById('traffic-id').value;
-                if(confirm("Excluir este investimento?")) {
-                    await this.deleteItemGeneric(id);
-                    this.closeTrafficModal();
-                }
-            },
-
-            // ... (Restante das funções mantidas iguais: openModal, closeModal, editPost, savePost, deletePost, saveItemGeneric, etc.) ...
 
             openModal(existing = null) {
                 const modal = document.getElementById('post-modal');
@@ -1669,8 +1516,13 @@
                     document.getElementById('post-content-text').value = existing.contentBody || '';
                     document.getElementById('post-platform').value = existing.platform;
                     document.getElementById('post-type').value = existing.type;
+                    
+                    // Agora 'post-date' é a Data da Solicitação
                     document.getElementById('post-date').value = existing.date;
-                    document.getElementById('post-deadline').value = existing.deadline || '';
+                    
+                    // Data de Conclusão se existir
+                    document.getElementById('post-completion-date').value = existing.completionDate || '';
+                    
                     document.getElementById('post-status').value = existing.status;
                     
                     document.getElementById('post-requester').value = existing.requester || '';
@@ -1681,7 +1533,6 @@
                     document.getElementById('cost-group').classList.toggle('hidden', !existing.hasCost);
                     document.getElementById('post-cost-value').value = existing.costValue || '';
                     
-                    // Populate New Fields
                     document.getElementById('post-ref-link').value = existing.referenceLink || '';
                     
                     if(existing.referenceImageUrl) {
@@ -1704,6 +1555,9 @@
                     fileLink.classList.add('hidden');
                     btnDelete.classList.add('hidden');
                 }
+                
+                // Atualiza a visibilidade do campo de conclusão com base no status carregado ou padrão
+                this.toggleCompletionDate();
             },
 
             closeModal() { document.getElementById('post-modal').classList.add('hidden'); },
@@ -1715,24 +1569,23 @@
 
             async savePost() {
                 const btnSave = document.getElementById('btn-save-post');
-                
+                const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms));
+
                 try {
                     btnSave.disabled = true;
-                    btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
+                    btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processando...`;
 
                     const id = document.getElementById('post-id').value || this.generateId();
                     const newStatus = document.getElementById('post-status').value;
                     const oldItem = this.data.find(i => i.id === id);
                     const wasDone = oldItem && oldItem.status === 'done';
 
-                    // Validação Básica
                     const title = document.getElementById('post-title').value;
                     if(!title) {
                         alert("Por favor, preencha o título.");
                         throw new Error("Validation failed");
                     }
 
-                    // Handle File Upload
                     const fileInput = document.getElementById('post-ref-image');
                     const file = fileInput.files[0];
                     let referenceImageUrl = oldItem ? oldItem.referenceImageUrl : null;
@@ -1742,19 +1595,25 @@
                              alert("O sistema de arquivos não está conectado. Verifique sua conexão ou configuração.");
                              throw new Error("Storage unavailable");
                         }
-                        
                         try {
                             btnSave.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-spin"></i> Enviando imagem...`;
                             const path = `artifacts/${window.effectiveAppId}/public/files/posts/${id}/${file.name}`;
                             const storageRef = window.storageOps.ref(window.storage, path);
-                            await window.storageOps.uploadBytes(storageRef, file);
+                            await Promise.race([
+                                window.storageOps.uploadBytes(storageRef, file),
+                                timeout(25000)
+                            ]);
                             referenceImageUrl = await window.storageOps.getDownloadURL(storageRef);
                         } catch (error) {
                             console.error("Upload error", error);
-                            alert("Erro ao enviar imagem. Tente novamente ou salve sem a imagem.");
-                            throw error;
+                            let msg = "Erro ao enviar a imagem.";
+                            if (error.message === "Timeout") msg = "O envio da imagem demorou muito.";
+                            const proceed = confirm(`${msg} Deseja salvar o post SEM a imagem para não perder os dados?`);
+                            if (!proceed) throw new Error("Upload cancelled by user");
                         }
                     }
+
+                    btnSave.innerHTML = `<i class="fa-solid fa-database fa-spin"></i> Salvando dados...`;
 
                     const item = {
                         id: id,
@@ -1763,8 +1622,16 @@
                         contentBody: document.getElementById('post-content-text').value,
                         platform: document.getElementById('post-platform').value,
                         type: document.getElementById('post-type').value,
+                        
+                        // Data Principal: Solicitação
                         date: document.getElementById('post-date').value,
-                        deadline: document.getElementById('post-deadline').value,
+                        
+                        // Data de Conclusão (se houver)
+                        completionDate: document.getElementById('post-completion-date').value,
+                        
+                        // Campos removidos (mas mantendo estrutura se necessário no futuro)
+                        // deadline: ..., 
+                        
                         status: newStatus,
                         requester: document.getElementById('post-requester').value,
                         format: document.getElementById('post-format').value,
@@ -1785,9 +1652,10 @@
                 } catch (error) {
                     console.error("Erro no processo de salvar:", error);
                 } finally {
-                    // Garante que o botão sempre destrava, mesmo se der erro
-                    btnSave.disabled = false;
-                    btnSave.innerHTML = "<span>Salvar</span>";
+                    if(btnSave) {
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = "<span>Salvar</span>";
+                    }
                 }
             },
 
@@ -1799,6 +1667,7 @@
                 }
             },
 
+            // --- Lógica Genérica de Salvamento/Exclusão ---
             async saveItemGeneric(item) {
                 const idx = this.data.findIndex(i => i.id === item.id);
                 if(idx >= 0) this.data[idx] = item;
