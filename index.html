@@ -404,7 +404,7 @@
 
                 <!-- 1. DASHBOARD VIEW -->
                 <div id="view-dashboard" class="view-section animate-fade-in hidden">
-                    <!-- ... Dashboard Content (igual) ... -->
+                    <!-- Header & Date Filter -->
                     <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8">
                         <div>
                             <h2 class="text-3xl font-bold text-main mb-1">Visão Geral</h2>
@@ -536,7 +536,6 @@
 
                 <!-- 2. TRAFFIC VIEW -->
                 <div id="view-traffic" class="view-section hidden animate-fade-in">
-                    <!-- ... Traffic Content (igual) ... -->
                      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Tráfego Pago</h2>
@@ -579,7 +578,6 @@
 
                 <!-- NEW: MANAGERS VIEW -->
                 <div id="view-managers" class="view-section hidden animate-fade-in">
-                    <!-- ... Managers Content (igual) ... -->
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Solicitação de Gestores</h2>
@@ -622,7 +620,6 @@
 
                 <!-- 4. ACTIVITIES VIEW -->
                 <div id="view-activities" class="view-section hidden animate-fade-in">
-                    <!-- ... Activities Content (igual) ... -->
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Conteúdo</h2>
@@ -669,7 +666,6 @@
 
                 <!-- 6. CONFIG VIEW -->
                 <div id="view-backup" class="view-section hidden animate-fade-in">
-                    <!-- ... Config Content (igual) ... -->
                     <h2 class="text-3xl font-bold text-main mb-6">Configurações Avançadas</h2>
                     <div class="glass-panel p-8 rounded-2xl max-w-2xl">
                         <label class="block text-xs font-bold mb-2 text-muted uppercase tracking-wide">Configuração JSON do Firebase</label>
@@ -1569,6 +1565,7 @@
 
             async savePost() {
                 const btnSave = document.getElementById('btn-save-post');
+                // Timeout ajustado: 15s para upload, 5s para link
                 const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms));
 
                 try {
@@ -1597,17 +1594,29 @@
                         }
                         try {
                             btnSave.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-spin"></i> Enviando imagem...`;
-                            const path = `artifacts/${window.effectiveAppId}/public/files/posts/${id}/${file.name}`;
+                            
+                            // Sanitiza nome do arquivo para evitar erros de caracteres
+                            const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                            const path = `artifacts/${window.effectiveAppId}/public/files/posts/${id}/${cleanName}`;
                             const storageRef = window.storageOps.ref(window.storage, path);
+                            
+                            // 1. Race para Upload (máx 15s)
                             await Promise.race([
                                 window.storageOps.uploadBytes(storageRef, file),
-                                timeout(25000)
+                                timeout(15000)
                             ]);
-                            referenceImageUrl = await window.storageOps.getDownloadURL(storageRef);
+                            
+                            // 2. Race para obter URL (máx 5s) - Frequente causa de travamento
+                            referenceImageUrl = await Promise.race([
+                                window.storageOps.getDownloadURL(storageRef),
+                                timeout(5000)
+                            ]);
+
                         } catch (error) {
                             console.error("Upload error", error);
                             let msg = "Erro ao enviar a imagem.";
-                            if (error.message === "Timeout") msg = "O envio da imagem demorou muito.";
+                            if (error.message === "Timeout") msg = "O processo demorou muito (timeout).";
+                            
                             const proceed = confirm(`${msg} Deseja salvar o post SEM a imagem para não perder os dados?`);
                             if (!proceed) throw new Error("Upload cancelled by user");
                         }
@@ -1628,9 +1637,6 @@
                         
                         // Data de Conclusão (se houver)
                         completionDate: document.getElementById('post-completion-date').value,
-                        
-                        // Campos removidos (mas mantendo estrutura se necessário no futuro)
-                        // deadline: ..., 
                         
                         status: newStatus,
                         requester: document.getElementById('post-requester').value,
