@@ -1715,67 +1715,79 @@
 
             async savePost() {
                 const btnSave = document.getElementById('btn-save-post');
-                btnSave.disabled = true;
-                btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
+                
+                try {
+                    btnSave.disabled = true;
+                    btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
 
-                const id = document.getElementById('post-id').value || this.generateId();
-                const newStatus = document.getElementById('post-status').value;
-                const oldItem = this.data.find(i => i.id === id);
-                const wasDone = oldItem && oldItem.status === 'done';
+                    const id = document.getElementById('post-id').value || this.generateId();
+                    const newStatus = document.getElementById('post-status').value;
+                    const oldItem = this.data.find(i => i.id === id);
+                    const wasDone = oldItem && oldItem.status === 'done';
 
-                // Handle File Upload
-                const fileInput = document.getElementById('post-ref-image');
-                const file = fileInput.files[0];
-                let referenceImageUrl = oldItem ? oldItem.referenceImageUrl : null;
+                    // Validação Básica
+                    const title = document.getElementById('post-title').value;
+                    if(!title) {
+                        alert("Por favor, preencha o título.");
+                        throw new Error("Validation failed");
+                    }
 
-                if (file) {
-                    if (!window.storageOps) {
-                         // Fallback or warning
-                    } else {
+                    // Handle File Upload
+                    const fileInput = document.getElementById('post-ref-image');
+                    const file = fileInput.files[0];
+                    let referenceImageUrl = oldItem ? oldItem.referenceImageUrl : null;
+
+                    if (file) {
+                        if (!window.storageOps) {
+                             alert("O sistema de arquivos não está conectado. Verifique sua conexão ou configuração.");
+                             throw new Error("Storage unavailable");
+                        }
+                        
                         try {
+                            btnSave.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-spin"></i> Enviando imagem...`;
                             const path = `artifacts/${window.effectiveAppId}/public/files/posts/${id}/${file.name}`;
                             const storageRef = window.storageOps.ref(window.storage, path);
                             await window.storageOps.uploadBytes(storageRef, file);
                             referenceImageUrl = await window.storageOps.getDownloadURL(storageRef);
                         } catch (error) {
                             console.error("Upload error", error);
+                            alert("Erro ao enviar imagem. Tente novamente ou salve sem a imagem.");
+                            throw error;
                         }
                     }
-                }
 
-                const item = {
-                    id: id,
-                    docType: 'post',
-                    title: document.getElementById('post-title').value,
-                    contentBody: document.getElementById('post-content-text').value,
-                    platform: document.getElementById('post-platform').value,
-                    type: document.getElementById('post-type').value,
-                    date: document.getElementById('post-date').value,
-                    deadline: document.getElementById('post-deadline').value,
-                    status: newStatus,
-                    requester: document.getElementById('post-requester').value,
-                    format: document.getElementById('post-format').value,
-                    urgency: document.getElementById('post-urgency').value,
-                    hasCost: document.getElementById('post-has-cost').checked,
-                    costValue: document.getElementById('post-cost-value').value,
-                    
-                    // New fields
-                    referenceLink: document.getElementById('post-ref-link').value,
-                    referenceImageUrl: referenceImageUrl
-                };
+                    const item = {
+                        id: id,
+                        docType: 'post',
+                        title: title,
+                        contentBody: document.getElementById('post-content-text').value,
+                        platform: document.getElementById('post-platform').value,
+                        type: document.getElementById('post-type').value,
+                        date: document.getElementById('post-date').value,
+                        deadline: document.getElementById('post-deadline').value,
+                        status: newStatus,
+                        requester: document.getElementById('post-requester').value,
+                        format: document.getElementById('post-format').value,
+                        urgency: document.getElementById('post-urgency').value,
+                        hasCost: document.getElementById('post-has-cost').checked,
+                        costValue: document.getElementById('post-cost-value').value,
+                        referenceLink: document.getElementById('post-ref-link').value,
+                        referenceImageUrl: referenceImageUrl
+                    };
 
-                if(!item.title) {
-                    alert("Preencha o título");
+                    await this.saveItemGeneric(item);
+                    this.closeModal();
+
+                    if (newStatus === 'done' && !wasDone) {
+                        this.celebrate();
+                    }
+
+                } catch (error) {
+                    console.error("Erro no processo de salvar:", error);
+                } finally {
+                    // Garante que o botão sempre destrava, mesmo se der erro
                     btnSave.disabled = false;
                     btnSave.innerHTML = "<span>Salvar</span>";
-                    return;
-                }
-
-                await this.saveItemGeneric(item);
-                this.closeModal();
-
-                if (newStatus === 'done' && !wasDone) {
-                    this.celebrate();
                 }
             },
 
