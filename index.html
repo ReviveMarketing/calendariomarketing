@@ -744,6 +744,22 @@
                         </div>
                     </div>
 
+                    <!-- NOVO GRUPO: REFERÊNCIAS -->
+                    <div class="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+                        <label class="block text-xs font-bold text-muted uppercase mb-2">Materiais de Referência (Opcional)</label>
+                        
+                        <div class="mb-3">
+                            <label class="text-[10px] uppercase font-bold text-muted mb-1 block">Link de Referência (Vídeo/Site)</label>
+                            <input type="url" id="post-ref-link" class="w-full rounded-lg p-2 text-xs" placeholder="https://youtube.com/...">
+                        </div>
+
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-muted mb-1 block">Imagem de Exemplo</label>
+                            <input type="file" id="post-ref-image" accept="image/*" class="w-full text-xs text-muted">
+                            <div id="post-ref-image-link" class="mt-2 hidden"></div>
+                        </div>
+                    </div>
+
                     <!-- DESCRIÇÃO ATUALIZADA -->
                     <div>
                         <label class="block text-xs font-bold text-muted uppercase mb-1">O que você quer fazer? (Detalhes)</label>
@@ -1638,6 +1654,7 @@
 
             openModal(existing = null) {
                 const modal = document.getElementById('post-modal');
+                const fileLink = document.getElementById('post-ref-image-link');
                 modal.classList.remove('hidden');
                 document.getElementById('post-form').reset();
                 const btnDelete = document.getElementById('btn-delete');
@@ -1664,6 +1681,16 @@
                     document.getElementById('cost-group').classList.toggle('hidden', !existing.hasCost);
                     document.getElementById('post-cost-value').value = existing.costValue || '';
                     
+                    // Populate New Fields
+                    document.getElementById('post-ref-link').value = existing.referenceLink || '';
+                    
+                    if(existing.referenceImageUrl) {
+                        fileLink.classList.remove('hidden');
+                        fileLink.innerHTML = `<a href="${existing.referenceImageUrl}" target="_blank" class="text-xs text-neon-blue hover:underline flex items-center gap-1"><i class="fa-solid fa-eye"></i> Ver imagem de referência</a>`;
+                    } else {
+                        fileLink.classList.add('hidden');
+                    }
+
                     btnDelete.classList.remove('hidden');
                 } else {
                     document.getElementById('post-id').value = '';
@@ -1674,6 +1701,7 @@
                     document.getElementById('post-date').value = `${y}-${m}-${d}`;
                     
                     document.getElementById('cost-group').classList.add('hidden');
+                    fileLink.classList.add('hidden');
                     btnDelete.classList.add('hidden');
                 }
             },
@@ -1695,6 +1723,26 @@
                 const oldItem = this.data.find(i => i.id === id);
                 const wasDone = oldItem && oldItem.status === 'done';
 
+                // Handle File Upload
+                const fileInput = document.getElementById('post-ref-image');
+                const file = fileInput.files[0];
+                let referenceImageUrl = oldItem ? oldItem.referenceImageUrl : null;
+
+                if (file) {
+                    if (!window.storageOps) {
+                         // Fallback or warning
+                    } else {
+                        try {
+                            const path = `artifacts/${window.effectiveAppId}/public/files/posts/${id}/${file.name}`;
+                            const storageRef = window.storageOps.ref(window.storage, path);
+                            await window.storageOps.uploadBytes(storageRef, file);
+                            referenceImageUrl = await window.storageOps.getDownloadURL(storageRef);
+                        } catch (error) {
+                            console.error("Upload error", error);
+                        }
+                    }
+                }
+
                 const item = {
                     id: id,
                     docType: 'post',
@@ -1709,8 +1757,13 @@
                     format: document.getElementById('post-format').value,
                     urgency: document.getElementById('post-urgency').value,
                     hasCost: document.getElementById('post-has-cost').checked,
-                    costValue: document.getElementById('post-cost-value').value
+                    costValue: document.getElementById('post-cost-value').value,
+                    
+                    // New fields
+                    referenceLink: document.getElementById('post-ref-link').value,
+                    referenceImageUrl: referenceImageUrl
                 };
+
                 if(!item.title) {
                     alert("Preencha o título");
                     btnSave.disabled = false;
