@@ -1380,6 +1380,133 @@
                 });
             },
 
+            renderManagers() {
+                const list = document.getElementById('managers-list');
+                const empty = document.getElementById('managers-empty');
+                list.innerHTML = '';
+
+                const items = this.data.filter(i => i.docType === 'manager_request');
+                items.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                if(items.length === 0) {
+                    empty.classList.remove('hidden');
+                    return;
+                }
+                empty.classList.add('hidden');
+
+                const statusMap = {
+                    'pending': '<span class="text-neon-yellow font-bold"><i class="fa-regular fa-clock"></i> Pendente</span>',
+                    'done': '<span class="text-neon-green font-bold"><i class="fa-solid fa-check"></i> Concluído</span>'
+                };
+                
+                const urgencyMap = {
+                    'urgente': '<span class="text-neon-red font-bold">⚡ Urgente</span>',
+                    'rapido': '<span class="text-neon-yellow font-bold">🚀 Rápido</span>',
+                    'normal': '<span class="text-neon-blue font-bold">📅 Normal</span>',
+                    'outro': '<span class="text-muted">Outro</span>'
+                };
+
+                items.forEach(item => {
+                    const date = item.date.split('-').reverse().join('/');
+                    
+                    const row = document.createElement('tr');
+                    row.className = "hover:bg-black/5 dark:hover:bg-white/5 transition border-b border-black/5 dark:border-white/5 last:border-0 group";
+                    row.innerHTML = `
+                        <td class="p-5">${statusMap[item.status] || item.status}</td>
+                        <td class="p-5">${urgencyMap[item.urgency] || '-'}</td>
+                        <td class="p-5 font-mono text-muted text-xs">${date}</td>
+                        <td class="p-5 font-bold">${item.requester || '-'}</td>
+                        <td class="p-5">
+                            <div class="font-bold text-main">${item.title}</div>
+                            <div class="text-xs text-muted italic truncate max-w-xs">${item.notes || ''}</div>
+                        </td>
+                        <td class="p-5 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="app.editManagerRequest('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-pink hover:shadow-glow transition-all" title="Editar"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="app.deleteItemGeneric('${item.id}')" class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-muted hover:text-white hover:bg-neon-red hover:shadow-glow transition-all" title="Excluir"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </td>
+                    `;
+                    list.appendChild(row);
+                });
+            },
+
+            openManagerModal(existing = null) {
+                const modal = document.getElementById('manager-modal');
+                const btnDelete = document.getElementById('btn-delete-manager');
+                modal.classList.remove('hidden');
+                document.getElementById('manager-form').reset();
+                
+                // Reset Button state
+                const btnSave = document.getElementById('btn-save-manager');
+                btnSave.disabled = false;
+                btnSave.innerHTML = "<span>Salvar</span>";
+
+                if(existing) {
+                    document.getElementById('manager-id').value = existing.id;
+                    document.getElementById('manager-title').value = existing.title;
+                    document.getElementById('manager-name').value = existing.requester;
+                    document.getElementById('manager-format').value = existing.format || 'outro';
+                    document.getElementById('manager-urgency').value = existing.urgency || 'normal';
+                    document.getElementById('manager-date').value = existing.date;
+                    document.getElementById('manager-status').value = existing.status;
+                    document.getElementById('manager-notes').value = existing.notes || '';
+                    
+                    btnDelete.classList.remove('hidden');
+                } else {
+                    document.getElementById('manager-id').value = '';
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    document.getElementById('manager-date').value = `${y}-${m}-${d}`;
+                    btnDelete.classList.add('hidden');
+                }
+            },
+
+            closeManagerModal() { document.getElementById('manager-modal').classList.add('hidden'); },
+
+            editManagerRequest(id) {
+                const item = this.data.find(i => i.id === id);
+                if(item) this.openManagerModal(item);
+            },
+
+            async saveManagerRequest() {
+                const btnSave = document.getElementById('btn-save-manager');
+                btnSave.disabled = true;
+                btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Salvando...`;
+
+                const id = document.getElementById('manager-id').value || this.generateId();
+                
+                const item = {
+                    id: id,
+                    docType: 'manager_request',
+                    title: document.getElementById('manager-title').value,
+                    requester: document.getElementById('manager-name').value,
+                    format: document.getElementById('manager-format').value,
+                    urgency: document.getElementById('manager-urgency').value,
+                    date: document.getElementById('manager-date').value,
+                    status: document.getElementById('manager-status').value,
+                    notes: document.getElementById('manager-notes').value
+                };
+
+                if(!item.title) { 
+                    alert("Preencha o título"); 
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = "<span>Salvar</span>";
+                    return; 
+                }
+                
+                await this.saveItemGeneric(item);
+                this.closeManagerModal();
+            },
+
+            async deleteManagerRequest() {
+                const id = document.getElementById('manager-id').value;
+                if(confirm("Excluir esta solicitação?")) {
+                    await this.deleteItemGeneric(id);
+                    this.closeManagerModal();
+                }
+            },
+
             openTrafficModal(existing = null) {
                 const modal = document.getElementById('traffic-modal');
                 const btnDelete = document.getElementById('btn-delete-traffic');
