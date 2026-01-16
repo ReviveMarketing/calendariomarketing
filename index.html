@@ -685,7 +685,7 @@
         </main>
     </div>
 
-    <!-- MODAL POST (Atualizado: Sem upload de imagens) -->
+    <!-- MODAL POST -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative overflow-y-auto max-h-[90vh]">
@@ -887,28 +887,26 @@
         </div>
     </div>
 
-    <!-- MODAL MANAGER REQUEST (Igual) -->
+    <!-- MODAL MANAGER REQUEST (ATUALIZADO E COMPLETO) -->
     <div id="manager-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeManagerModal()">
-          <!-- ... Manager Modal Content ... -->
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
-            <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
+            <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative overflow-y-auto max-h-[90vh]">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-pink to-neon-purple"></div>
-                <h3 class="text-xl font-bold mb-6 text-main" id="manager-modal-title">Nova Solicitação</h3>
+                <h3 class="text-xl font-bold mb-6 text-main" id="manager-modal-title">Nova Solicitação (Gestor)</h3>
                 <form id="manager-form" class="space-y-4">
                     <input type="hidden" id="manager-id">
                     
-                    <div>
-                        <label class="block text-xs font-bold text-muted uppercase mb-1">Título da Demanda</label>
-                        <input type="text" id="manager-title" class="w-full rounded-lg p-3 focus:border-neon-pink focus:ring-1 focus:ring-neon-pink">
-                    </div>
-                    
-                    <div>
-                        <label class="block text-xs font-bold text-muted uppercase mb-1">Nome (Solicitante/Gestor)</label>
-                        <input type="text" id="manager-name" class="w-full rounded-lg p-3" placeholder="Nome do Gestor">
-                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Título da Demanda</label>
+                            <input type="text" id="manager-title" class="w-full rounded-lg p-3 focus:border-neon-pink focus:ring-1 focus:ring-neon-pink">
+                        </div>
+                        
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Nome (Solicitante/Gestor)</label>
+                            <input type="text" id="manager-name" class="w-full rounded-lg p-3" placeholder="Nome do Gestor">
+                        </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <!-- NOVO CAMPO: FORMATO -->
                         <div>
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Formato</label>
                             <select id="manager-format" class="w-full rounded-lg p-3">
@@ -918,7 +916,7 @@
                                 <option value="outro">Outro</option>
                             </select>
                         </div>
-                        <!-- NOVO CAMPO: URGENCIA/PRAZO -->
+                        
                         <div>
                             <label class="block text-xs font-bold text-muted uppercase mb-1">Prioridade / Prazo</label>
                             <select id="manager-urgency" class="w-full rounded-lg p-3 font-bold text-slate-600 dark:text-slate-300">
@@ -930,23 +928,70 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold text-muted uppercase mb-1">Data</label>
-                            <input type="date" id="manager-date" class="w-full rounded-lg p-3">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-muted uppercase mb-1">Status</label>
-                            <select id="manager-status" class="w-full rounded-lg p-3">
-                                <option value="pending">Pendente</option>
-                                <option value="done">Concluído</option>
-                            </select>
+                    <!-- REFERÊNCIAS -->
+                    <div class="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+                        <label class="block text-xs font-bold text-muted uppercase mb-2">Materiais de Referência (Opcional)</label>
+                        <div class="mb-3">
+                            <label class="text-[10px] uppercase font-bold text-muted mb-1 block">Link de Referência</label>
+                            <input type="url" id="manager-ref-link" class="w-full rounded-lg p-2 text-xs" placeholder="https://...">
                         </div>
                     </div>
+
                     <div>
                          <label class="block text-xs font-bold text-muted uppercase mb-1">O que você quer fazer? (Detalhes)</label>
                          <textarea id="manager-notes" class="w-full rounded-lg p-3 min-h-[100px]" rows="3" placeholder="Modo texto..."></textarea>
                     </div>
+
+                    <!-- PLATAFORMA E TIPO -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Canal</label>
+                            <select id="manager-platform" class="w-full rounded-lg p-3">
+                                <option value="instagram">Instagram</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="others">Outros</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Tipo</label>
+                            <select id="manager-type" class="w-full rounded-lg p-3">
+                                <option value="post">Post (Feed)</option>
+                                <option value="reels">Reels</option>
+                                <option value="stories">Stories</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- CUSTO -->
+                    <div class="flex items-center gap-3 p-3 bg-slate-100 dark:bg-slate-900/50 rounded-lg border border-black/5 dark:border-white/5">
+                        <input type="checkbox" id="manager-has-cost" class="w-4 h-4 rounded border-slate-600 text-neon-pink focus:ring-neon-pink" onchange="document.getElementById('manager-cost-group').classList.toggle('hidden')">
+                        <label for="manager-has-cost" class="text-sm text-muted font-medium">Tem Custo?</label>
+                    </div>
+                    <div id="manager-cost-group" class="hidden animate-fade-in">
+                         <label class="block text-xs font-bold text-muted uppercase mb-1">Valor (R$)</label>
+                         <input type="number" id="manager-cost-value" step="0.01" class="w-full rounded-lg p-3 focus:border-neon-pink">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-muted uppercase mb-1">Data Solicitação</label>
+                            <input type="date" id="manager-date" class="w-full rounded-lg p-3">
+                        </div>
+                        <div id="manager-completion-date-group" class="hidden animate-fade-in">
+                            <label class="block text-xs font-bold text-neon-green uppercase mb-1">Data Conclusão</label>
+                            <input type="date" id="manager-completion-date" class="w-full rounded-lg p-3 border-neon-green/30 focus:border-neon-green font-bold text-neon-green">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-muted uppercase mb-1">Status</label>
+                        <select id="manager-status" class="w-full rounded-lg p-3" onchange="app.toggleManagerCompletionDate()">
+                            <option value="pending">Pendente</option>
+                            <option value="done">Concluído</option>
+                        </select>
+                    </div>
+
                 </form>
                 <div class="mt-8 flex justify-end gap-3">
                     <button onclick="app.deleteManagerRequest()" id="btn-delete-manager" class="hidden text-neon-red hover:bg-neon-red/10 px-4 py-2 rounded-lg text-sm font-bold transition">Excluir</button>
@@ -1467,7 +1512,7 @@
 
             // --- Lógica de Modais e Salvamento ---
 
-            // Função auxiliar para mostrar/esconder data de conclusão
+            // Função auxiliar para mostrar/esconder data de conclusão (POSTS)
             toggleCompletionDate() {
                 const status = document.getElementById('post-status').value;
                 const group = document.getElementById('completion-date-group');
@@ -1476,6 +1521,27 @@
                 if (status === 'done') {
                     group.classList.remove('hidden');
                     // Se estiver vazio, sugere a data de hoje
+                    if (!input.value) {
+                        const today = new Date();
+                        const y = today.getFullYear();
+                        const m = String(today.getMonth() + 1).padStart(2, '0');
+                        const d = String(today.getDate()).padStart(2, '0');
+                        input.value = `${y}-${m}-${d}`;
+                    }
+                } else {
+                    group.classList.add('hidden');
+                    input.value = '';
+                }
+            },
+            
+            // Nova Função: Data de Conclusão para GESTORES
+            toggleManagerCompletionDate() {
+                const status = document.getElementById('manager-status').value;
+                const group = document.getElementById('manager-completion-date-group');
+                const input = document.getElementById('manager-completion-date');
+                
+                if (status === 'done') {
+                    group.classList.remove('hidden');
                     if (!input.value) {
                         const today = new Date();
                         const y = today.getFullYear();
@@ -1716,15 +1782,34 @@
                     document.getElementById('manager-name').value = item.requester || '';
                     document.getElementById('manager-format').value = item.format || 'foto';
                     document.getElementById('manager-urgency').value = item.urgency || 'normal';
+                    
+                    // Novos campos
+                    document.getElementById('manager-ref-link').value = item.referenceLink || '';
+                    document.getElementById('manager-platform').value = item.platform || 'instagram';
+                    document.getElementById('manager-type').value = item.type || 'post';
+                    document.getElementById('manager-has-cost').checked = item.hasCost || false;
+                    document.getElementById('manager-cost-group').classList.toggle('hidden', !item.hasCost);
+                    document.getElementById('manager-cost-value').value = item.costValue || '';
+                    
                     document.getElementById('manager-date').value = item.date;
+                    document.getElementById('manager-completion-date').value = item.completionDate || '';
+                    
                     document.getElementById('manager-status').value = item.status;
                     document.getElementById('manager-notes').value = item.notes || '';
                     btnDel.classList.remove('hidden');
                 } else {
                     document.getElementById('manager-id').value = '';
-                    document.getElementById('manager-date').value = new Date().toISOString().split('T')[0];
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    document.getElementById('manager-date').value = `${y}-${m}-${d}`;
+                    
+                    document.getElementById('manager-cost-group').classList.add('hidden');
                     btnDel.classList.add('hidden');
                 }
+                
+                this.toggleManagerCompletionDate();
             },
 
             closeManagerModal() { document.getElementById('manager-modal').classList.add('hidden'); },
@@ -1748,7 +1833,17 @@
                         requester: document.getElementById('manager-name').value,
                         format: document.getElementById('manager-format').value,
                         urgency: document.getElementById('manager-urgency').value,
+                        
+                        // Novos campos
+                        referenceLink: document.getElementById('manager-ref-link').value,
+                        platform: document.getElementById('manager-platform').value,
+                        type: document.getElementById('manager-type').value,
+                        hasCost: document.getElementById('manager-has-cost').checked,
+                        costValue: document.getElementById('manager-cost-value').value,
+                        
                         date: document.getElementById('manager-date').value,
+                        completionDate: document.getElementById('manager-completion-date').value,
+                        
                         status: document.getElementById('manager-status').value,
                         notes: document.getElementById('manager-notes').value
                     };
