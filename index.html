@@ -21,10 +21,10 @@
                             950: '#020617', // Fundo Dark
                         },
                         neon: {
-                            blue: '#06b6d4',   
+                            blue: '#06b6d4',    
                             purple: '#8b5cf6', 
-                            green: '#10b981',  
-                            red: '#f43f5e',    
+                            green: '#10b981',   
+                            red: '#f43f5e',     
                             yellow: '#f59e0b', 
                             pink: '#ec4899',
                         },
@@ -536,7 +536,7 @@
 
                 <!-- 2. TRAFFIC VIEW -->
                 <div id="view-traffic" class="view-section hidden animate-fade-in">
-                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+                      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
                         <div>
                             <h2 class="text-3xl font-bold text-main">Tráfego Pago</h2>
                             <p class="text-sm text-muted mt-1">Gestão de investimentos em Ads.</p>
@@ -685,7 +685,7 @@
         </main>
     </div>
 
-    <!-- MODAL POST (Atualizado com Lógica de Datas) -->
+    <!-- MODAL POST (Atualizado: Sem upload de imagens) -->
     <div id="post-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeModal()">
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative overflow-y-auto max-h-[90vh]">
@@ -738,11 +738,7 @@
                             <input type="url" id="post-ref-link" class="w-full rounded-lg p-2 text-xs" placeholder="https://youtube.com/...">
                         </div>
 
-                        <div>
-                            <label class="text-[10px] uppercase font-bold text-muted mb-1 block">Imagem de Exemplo</label>
-                            <input type="file" id="post-ref-image" accept="image/*" class="w-full text-xs text-muted">
-                            <div id="post-ref-image-link" class="mt-2 hidden"></div>
-                        </div>
+                        <!-- REMOVIDO: Campo de Upload de Imagem -->
                     </div>
 
                     <!-- DESCRIÇÃO -->
@@ -815,7 +811,7 @@
 
     <!-- MODAL TRAFFIC (Igual) -->
     <div id="traffic-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeTrafficModal()">
-         <!-- ... Traffic Modal Content ... -->
+          <!-- ... Traffic Modal Content ... -->
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-md p-8 relative">
                 <div class="absolute top-0 left-0 w-full h-1 bg-neon-green"></div>
@@ -895,7 +891,7 @@
 
     <!-- MODAL MANAGER REQUEST (Igual) -->
     <div id="manager-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this) app.closeManagerModal()">
-         <!-- ... Manager Modal Content ... -->
+          <!-- ... Manager Modal Content ... -->
         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl w-full max-w-lg p-8 relative">
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-pink to-neon-purple"></div>
@@ -967,8 +963,8 @@
 
     <!-- JOIN ROOM MODAL -->
     <div id="join-room-modal" class="fixed inset-0 z-[80] hidden" onclick="if(event.target===this) app.closeJoinModal()">
-         <!-- ... Join Room Content ... -->
-         <div class="flex min-h-full items-center justify-center p-4 modal-bg">
+          <!-- ... Join Room Content ... -->
+          <div class="flex min-h-full items-center justify-center p-4 modal-bg">
             <div class="modal-content rounded-2xl p-8 w-full max-w-sm text-center">
                 <h3 class="text-xl font-bold mb-2 text-main">Entrar em Sala</h3>
                 <p class="text-sm text-muted mb-6">Digite o código da sala para conectar.</p>
@@ -1055,8 +1051,8 @@
                 const savedConfig = localStorage.getItem('custom_firebase_config');
                 if(savedConfig) {
                     try {
-                         const obj = JSON.parse(savedConfig);
-                         document.getElementById('custom-config-input').value = JSON.stringify(obj, null, 2);
+                          const obj = JSON.parse(savedConfig);
+                          document.getElementById('custom-config-input').value = JSON.stringify(obj, null, 2);
                     } catch(e) {}
                 }
                 const savedRoom = localStorage.getItem('custom_room_id');
@@ -1497,7 +1493,9 @@
 
             openModal(existing = null) {
                 const modal = document.getElementById('post-modal');
-                const fileLink = document.getElementById('post-ref-image-link');
+                // REMOVIDO: Referencia de link de arquivo
+                // const fileLink = document.getElementById('post-ref-image-link');
+                
                 modal.classList.remove('hidden');
                 document.getElementById('post-form').reset();
                 const btnDelete = document.getElementById('btn-delete');
@@ -1531,12 +1529,7 @@
                     
                     document.getElementById('post-ref-link').value = existing.referenceLink || '';
                     
-                    if(existing.referenceImageUrl) {
-                        fileLink.classList.remove('hidden');
-                        fileLink.innerHTML = `<a href="${existing.referenceImageUrl}" target="_blank" class="text-xs text-neon-blue hover:underline flex items-center gap-1"><i class="fa-solid fa-eye"></i> Ver imagem de referência</a>`;
-                    } else {
-                        fileLink.classList.add('hidden');
-                    }
+                    // REMOVIDO: Logica de mostrar link de imagem existente
 
                     btnDelete.classList.remove('hidden');
                 } else {
@@ -1548,7 +1541,7 @@
                     document.getElementById('post-date').value = `${y}-${m}-${d}`;
                     
                     document.getElementById('cost-group').classList.add('hidden');
-                    fileLink.classList.add('hidden');
+                    // REMOVIDO: Logica de esconder link
                     btnDelete.classList.add('hidden');
                 }
                 
@@ -1565,8 +1558,8 @@
 
             async savePost() {
                 const btnSave = document.getElementById('btn-save-post');
-                // Timeout ajustado: 15s para upload, 5s para link
-                const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms));
+                
+                // REMOVIDO: Timeout de upload
 
                 try {
                     btnSave.disabled = true;
@@ -1583,45 +1576,8 @@
                         throw new Error("Validation failed");
                     }
 
-                    const fileInput = document.getElementById('post-ref-image');
-                    const file = fileInput.files[0];
-                    let referenceImageUrl = oldItem ? oldItem.referenceImageUrl : null;
-
-                    if (file) {
-                        if (!window.storageOps) {
-                             alert("O sistema de arquivos não está conectado. Verifique sua conexão ou configuração.");
-                             throw new Error("Storage unavailable");
-                        }
-                        try {
-                            btnSave.innerHTML = `<i class="fa-solid fa-cloud-arrow-up fa-spin"></i> Enviando imagem...`;
-                            
-                            // Sanitiza nome do arquivo para evitar erros de caracteres
-                            const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                            const path = `artifacts/${window.effectiveAppId}/public/files/posts/${id}/${cleanName}`;
-                            const storageRef = window.storageOps.ref(window.storage, path);
-                            
-                            // 1. Race para Upload (máx 15s)
-                            await Promise.race([
-                                window.storageOps.uploadBytes(storageRef, file),
-                                timeout(15000)
-                            ]);
-                            
-                            // 2. Race para obter URL (máx 5s) - Frequente causa de travamento
-                            referenceImageUrl = await Promise.race([
-                                window.storageOps.getDownloadURL(storageRef),
-                                timeout(5000)
-                            ]);
-
-                        } catch (error) {
-                            console.error("Upload error", error);
-                            let msg = "Erro ao enviar a imagem.";
-                            if (error.message === "Timeout") msg = "O processo demorou muito (timeout).";
-                            
-                            const proceed = confirm(`${msg} Deseja salvar o post SEM a imagem para não perder os dados?`);
-                            if (!proceed) throw new Error("Upload cancelled by user");
-                        }
-                    }
-
+                    // REMOVIDO: Lógica complexa de Upload de Imagem (Storage)
+                    
                     btnSave.innerHTML = `<i class="fa-solid fa-database fa-spin"></i> Salvando dados...`;
 
                     const item = {
@@ -1645,7 +1601,7 @@
                         hasCost: document.getElementById('post-has-cost').checked,
                         costValue: document.getElementById('post-cost-value').value,
                         referenceLink: document.getElementById('post-ref-link').value,
-                        referenceImageUrl: referenceImageUrl
+                        // referenceImageUrl: referenceImageUrl  <-- REMOVIDO
                     };
 
                     await this.saveItemGeneric(item);
