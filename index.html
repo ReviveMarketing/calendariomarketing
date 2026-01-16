@@ -737,8 +737,6 @@
                             <label class="text-[10px] uppercase font-bold text-muted mb-1 block">Link de Referência (Vídeo/Site)</label>
                             <input type="url" id="post-ref-link" class="w-full rounded-lg p-2 text-xs" placeholder="https://youtube.com/...">
                         </div>
-
-                        <!-- REMOVIDO: Campo de Upload de Imagem -->
                     </div>
 
                     <!-- DESCRIÇÃO -->
@@ -1493,8 +1491,6 @@
 
             openModal(existing = null) {
                 const modal = document.getElementById('post-modal');
-                // REMOVIDO: Referencia de link de arquivo
-                // const fileLink = document.getElementById('post-ref-image-link');
                 
                 modal.classList.remove('hidden');
                 document.getElementById('post-form').reset();
@@ -1529,8 +1525,6 @@
                     
                     document.getElementById('post-ref-link').value = existing.referenceLink || '';
                     
-                    // REMOVIDO: Logica de mostrar link de imagem existente
-
                     btnDelete.classList.remove('hidden');
                 } else {
                     document.getElementById('post-id').value = '';
@@ -1541,7 +1535,6 @@
                     document.getElementById('post-date').value = `${y}-${m}-${d}`;
                     
                     document.getElementById('cost-group').classList.add('hidden');
-                    // REMOVIDO: Logica de esconder link
                     btnDelete.classList.add('hidden');
                 }
                 
@@ -1559,8 +1552,6 @@
             async savePost() {
                 const btnSave = document.getElementById('btn-save-post');
                 
-                // REMOVIDO: Timeout de upload
-
                 try {
                     btnSave.disabled = true;
                     btnSave.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processando...`;
@@ -1575,8 +1566,6 @@
                         alert("Por favor, preencha o título.");
                         throw new Error("Validation failed");
                     }
-
-                    // REMOVIDO: Lógica complexa de Upload de Imagem (Storage)
                     
                     btnSave.innerHTML = `<i class="fa-solid fa-database fa-spin"></i> Salvando dados...`;
 
@@ -1601,7 +1590,6 @@
                         hasCost: document.getElementById('post-has-cost').checked,
                         costValue: document.getElementById('post-cost-value').value,
                         referenceLink: document.getElementById('post-ref-link').value,
-                        // referenceImageUrl: referenceImageUrl  <-- REMOVIDO
                     };
 
                     await this.saveItemGeneric(item);
@@ -1626,6 +1614,159 @@
                 if(confirm("Excluir?")) {
                     await this.deleteItemGeneric(id);
                     this.closeModal();
+                }
+            },
+
+            // --- FUNÇÕES MODAL TRAFFIC ---
+            openTrafficModal(item = null) {
+                document.getElementById('traffic-modal').classList.remove('hidden');
+                document.getElementById('traffic-form').reset();
+                const btnDel = document.getElementById('btn-delete-traffic');
+                const fileLink = document.getElementById('traffic-file-link');
+                
+                if(item) {
+                    document.getElementById('traffic-id').value = item.id;
+                    document.getElementById('traffic-platform').value = item.platform;
+                    document.getElementById('traffic-category').value = item.category;
+                    document.getElementById('traffic-value').value = item.value;
+                    document.getElementById('traffic-date').value = item.date;
+                    document.getElementById('traffic-method').value = item.paymentMethod;
+                    document.getElementById('traffic-notes').value = item.notes || '';
+                    if(item.attachmentUrl) {
+                        fileLink.classList.remove('hidden');
+                        fileLink.innerHTML = `<a href="${item.attachmentUrl}" target="_blank" class="text-neon-blue underline font-bold">Ver Anexo</a>`;
+                    } else {
+                        fileLink.classList.add('hidden');
+                    }
+                    btnDel.classList.remove('hidden');
+                } else {
+                    document.getElementById('traffic-id').value = '';
+                    document.getElementById('traffic-date').value = new Date().toISOString().split('T')[0];
+                    fileLink.classList.add('hidden');
+                    btnDel.classList.add('hidden');
+                }
+            },
+
+            closeTrafficModal() { document.getElementById('traffic-modal').classList.add('hidden'); },
+
+            editTraffic(id) {
+                const item = this.data.find(i => i.id === id);
+                if(item) this.openTrafficModal(item);
+            },
+
+            async saveTraffic() {
+                const btn = document.getElementById('btn-save-traffic');
+                btn.disabled = true;
+                btn.innerText = '...';
+                
+                try {
+                    const id = document.getElementById('traffic-id').value || this.generateId();
+                    const file = document.getElementById('traffic-file').files[0];
+                    let url = null;
+                    
+                    // Maintain old url if not changed
+                    const old = this.data.find(i => i.id === id);
+                    if(old) url = old.attachmentUrl;
+                    
+                    if(file && window.storageOps) {
+                         const ref = window.storageOps.ref(window.storage, `traffic/${id}/${file.name}`);
+                         await window.storageOps.uploadBytes(ref, file);
+                         url = await window.storageOps.getDownloadURL(ref);
+                    }
+
+                    const item = {
+                        id,
+                        docType: 'traffic',
+                        platform: document.getElementById('traffic-platform').value,
+                        category: document.getElementById('traffic-category').value,
+                        value: document.getElementById('traffic-value').value,
+                        date: document.getElementById('traffic-date').value,
+                        paymentMethod: document.getElementById('traffic-method').value,
+                        notes: document.getElementById('traffic-notes').value,
+                        attachmentUrl: url
+                    };
+
+                    await this.saveItemGeneric(item);
+                    this.closeTrafficModal();
+                } catch(e) {
+                    console.error(e);
+                    alert('Erro ao salvar tráfego');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = 'Salvar';
+                }
+            },
+
+            async deleteTraffic() {
+                if(confirm('Excluir?')) {
+                    await this.deleteItemGeneric(document.getElementById('traffic-id').value);
+                    this.closeTrafficModal();
+                }
+            },
+
+            // --- FUNÇÕES MODAL MANAGER ---
+            openManagerModal(item = null) {
+                document.getElementById('manager-modal').classList.remove('hidden');
+                document.getElementById('manager-form').reset();
+                const btnDel = document.getElementById('btn-delete-manager');
+                
+                if(item) {
+                    document.getElementById('manager-id').value = item.id;
+                    document.getElementById('manager-title').value = item.title;
+                    document.getElementById('manager-name').value = item.requester || '';
+                    document.getElementById('manager-format').value = item.format || 'foto';
+                    document.getElementById('manager-urgency').value = item.urgency || 'normal';
+                    document.getElementById('manager-date').value = item.date;
+                    document.getElementById('manager-status').value = item.status;
+                    document.getElementById('manager-notes').value = item.notes || '';
+                    btnDel.classList.remove('hidden');
+                } else {
+                    document.getElementById('manager-id').value = '';
+                    document.getElementById('manager-date').value = new Date().toISOString().split('T')[0];
+                    btnDel.classList.add('hidden');
+                }
+            },
+
+            closeManagerModal() { document.getElementById('manager-modal').classList.add('hidden'); },
+
+            editManagerRequest(id) {
+                const item = this.data.find(i => i.id === id);
+                if(item) this.openManagerModal(item);
+            },
+
+            async saveManagerRequest() {
+                const btn = document.getElementById('btn-save-manager');
+                btn.disabled = true;
+                btn.innerText = '...';
+                
+                try {
+                    const id = document.getElementById('manager-id').value || this.generateId();
+                    const item = {
+                        id,
+                        docType: 'manager_request',
+                        title: document.getElementById('manager-title').value,
+                        requester: document.getElementById('manager-name').value,
+                        format: document.getElementById('manager-format').value,
+                        urgency: document.getElementById('manager-urgency').value,
+                        date: document.getElementById('manager-date').value,
+                        status: document.getElementById('manager-status').value,
+                        notes: document.getElementById('manager-notes').value
+                    };
+
+                    await this.saveItemGeneric(item);
+                    this.closeManagerModal();
+                } catch(e) {
+                    console.error(e);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerText = 'Salvar';
+                }
+            },
+
+            async deleteManagerRequest() {
+                if(confirm('Excluir?')) {
+                    await this.deleteItemGeneric(document.getElementById('manager-id').value);
+                    this.closeManagerModal();
                 }
             },
 
