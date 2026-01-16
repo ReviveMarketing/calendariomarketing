@@ -1198,8 +1198,8 @@
                 const filtered = this.getFilteredData();
                 const today = new Date().toISOString().split('T')[0];
                 
-                // 1. Dados de Conteúdo
-                const posts = filtered.filter(i => (!i.docType || i.docType === 'post'));
+                // 1. Dados de Conteúdo (AGORA INCLUINDO GESTORES)
+                const posts = filtered.filter(i => (!i.docType || i.docType === 'post' || i.docType === 'manager_request'));
                 const done = posts.filter(i => i.status === 'done').length;
                 
                 // Lógica de Atrasados: status != done E data < hoje
